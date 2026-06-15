@@ -1,21 +1,21 @@
-# Testing: [Nombre de la Feature]
+# Testing: [Feature Name]
 
-## Pre-requisitos
-[Setup necesario: env vars, servicios corriendo, datos de prueba]
+## Prerequisites
+[Required setup: env vars, running services, test data]
 
 ## Test Cases
 
-### TC-01: [nombre del caso]
-**Acción**: [qué hacer]
-**Esperado**: [qué debe pasar]
+### TC-01: [test case name]
+**Action**: [what to do]
+**Expected**: [what should happen]
 
 ## Edge Cases
-| Escenario | Esperado |
+| Scenario | Expected |
 |---|---|
 
-## Verificación en logs
-[Comandos para verificar — grep request_id, queries a DB, etc.]
+## Log verification
+[Commands to verify — grep request_id, DB queries, etc.]
 
 ## Troubleshooting
-| Síntoma | Causa | Solución |
+| Symptom | Cause | Solution |
 |---|---|---|

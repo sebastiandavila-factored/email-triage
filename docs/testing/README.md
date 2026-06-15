@@ -1,22 +1,25 @@
 # Testing Guides
 
-Guías de testing manual. **Son obligatorias y sirven como protocolo de aceptación del humano.** El agente corre los tests automatizados; el humano valida UX y edge cases reales siguiendo estas guías.
+Manual testing guides. **These are mandatory and serve as the human's acceptance protocol.** The agent runs automated tests; the human validates UX and real edge cases following these guides.
 
-## Guías existentes
+## Existing guides
 
-_Ninguna todavía. La primera será `01-health-endpoint_testing.md` al cerrar Día 1._
+| # | Feature | Guide |
+|---|---|---|
+| 01 | Day 1 — Skeleton + Tooling | [01-day1-skeleton_testing.md](01-day1-skeleton_testing.md) |
+| 02 | Day 2 — Schemas and LLMService | [02-schemas-and-llm_testing.md](02-schemas-and-llm_testing.md) |
 
-## Convenciones
+## Conventions
 
-- **Un archivo por feature** con prefijo cronológico `NN-feature_testing.md`, mismo número que `docs/features/NN-feature.md`.
-- Cada guía debe incluir:
-  - **Pre-requisitos** — variables de entorno, servicios externos, datos de prueba
-  - **Happy path** — el flujo esperado paso a paso
-  - **Edge cases preventivos** — escenarios que el agente no puede probar (red real, secretos válidos, latencia, rate limits reales)
-  - **Workarounds** si hay blockers técnicos (ej. cómo simular un rate limit de Groq sin gastar quota)
-  - **Verificación en logs / DB** — qué grep, qué `request_id` buscar, qué métrica revisar
-- Si el agente se topa con un blocker durante implementación, documentarlo aquí para que el próximo no tropiece.
+- **One file per feature** with chronological prefix `NN-feature_testing.md`, same number as `docs/features/NN-feature.md`.
+- Each guide must include:
+  - **Prerequisites** — environment variables, external services, test data
+  - **Happy path** — the expected flow step by step
+  - **Preventive edge cases** — scenarios the agent cannot test (real network, valid secrets, latency, real rate limits)
+  - **Workarounds** if there are technical blockers (e.g. how to simulate a Groq rate limit without spending quota)
+  - **Log / DB verification** — what to grep, what `request_id` to look for, what metric to check
+- If the agent hits a blocker during implementation, document it here so the next one doesn't stumble on it.
 
 ## Template
 
-Ver [TEMPLATE.md](TEMPLATE.md).
+See [TEMPLATE.md](TEMPLATE.md).

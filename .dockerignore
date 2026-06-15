@@ -1,0 +1,28 @@
+# Secrets — never ship to the image
+.env
+.env.*
+!.env.example
+
+# Python artefacts
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Local virtual environment
+.venv/
+
+# Dev-only directories
+tests/
+docs/
+scripts/
+
+# Git metadata
+.git/
+.gitignore
+
+# Editor / OS
+.DS_Store
+*.swp

@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: email-triage
+    env: docker
+    healthCheckPath: /health
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: API_KEY
+        sync: false
+      - key: LOGFIRE_TOKEN
+        sync: false

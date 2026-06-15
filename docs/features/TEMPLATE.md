@@ -1,21 +1,21 @@
-# [Nombre de la Feature]
+# [Feature Name]
 
-## Qué hace
-[1-2 párrafos]
+## What it does
+[1-2 paragraphs]
 
-## Cómo funciona
-[Explicación técnica con diagrama si aplica]
+## How it works
+[Technical explanation with diagram if applicable]
 
-## Archivos involucrados
-| Archivo | Rol |
+## Files involved
+| File | Role |
 |---|---|
 
-## Decisiones de diseño
-| Decisión | Alternativa descartada | Razón |
+## Design decisions
+| Decision | Discarded alternative | Reason |
 |---|---|---|
 
 ## Gotchas / Edge cases
-[Cosas que el próximo developer debe saber]
+[Things the next developer should know]
 
 ## Testing
-📋 [Guía de testing](../testing/NN-<nombre>_testing.md)
+📋 [Testing guide](../testing/NN-<name>_testing.md)

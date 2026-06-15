@@ -1,109 +1,111 @@
-# CLAUDE.md — Convenciones técnicas
+# CLAUDE.md — Technical Conventions
 
-Referencia técnica para agentes AI trabajando en este repo. Leer antes de editar código.
+Technical reference for AI agents working on this repo. Read before editing code.
 
 ## Stack
 
-| Componente | Versión | Rol |
+| Component | Version | Role |
 |---|---|---|
-| Python | 3.14 | Runtime (fijado en `.python-version`) |
-| FastAPI | ≥0.136 | Framework, validación, auto-docs |
+| Python | 3.14 | Runtime (pinned in `.python-version`) |
+| FastAPI | ≥0.136 | Framework, validation, auto-docs |
 | Uvicorn | ≥0.48 | ASGI server (dev `--reload`) |
-| Gunicorn | TBD (Día 6) | Process manager en producción |
-| httpx | ≥0.28 | Cliente HTTP async (LLM Día 2-4) |
-| Pydantic AI | TBD (Día 5) | Cliente LLM provider-agnostic |
-| pydantic-settings | TBD (Día 4) | Config tipada desde `.env` |
-| structlog | TBD (Día 4) | Logs JSON con `request_id` |
-| uv | externo | Gestor de paquetes y entornos |
+| Gunicorn | ≥26.0 | Process manager in production |
+| httpx | ≥0.28 | Async HTTP client (requests in tests) |
+| pydantic-ai-slim[groq] | ≥1.104 | Provider-agnostic LLM client (Groq via Pydantic AI) |
+| pydantic-settings | ≥2.14 | Typed config from `.env` |
+| structlog | ≥25.5 | JSON logs with `request_id`, `trace_id`, `span_id` |
+| logfire[fastapi,httpx,system-metrics] | ≥4.34 | OTEL observability: HTTP spans, pydantic-ai, httpx, system metrics; scrubbing + sampling |
+| slowapi | ≥0.1.9 | Rate limiting by IP (20 req/min on `/triage`) |
+| uv | external | Package and environment manager |
 | ruff | --dev | Lint + format |
 | pyright | --dev | Type checker (strict) |
-| pre-commit | --dev | Hooks locales |
+| pre-commit | --dev | Local hooks |
 
-## Estructura objetivo
+## Target structure
 
 ```
 email-triage/
-├── src/email_triage/        # Paquete principal
+├── email_triage/        # Main package
 │   ├── main.py              # FastAPI app + lifespan
 │   ├── config.py            # Settings (pydantic-settings)
 │   ├── schemas.py           # TriageRequest, TriageResponse, Category
-│   ├── deps.py              # Dependencias inyectables (api key, llm)
+│   ├── deps.py              # Injectable dependencies (api key, llm)
 │   ├── middleware.py        # request_id + timing + structlog
-│   ├── services/            # Lógica de negocio
-│   │   └── llm.py           # LLMService (Groq vía httpx → Pydantic AI)
-│   └── routers/             # Endpoints agrupados por dominio
+│   ├── services/            # Business logic
+│   │   └── llm.py           # LLMService (Groq via httpx → Pydantic AI)
+│   └── routers/             # Endpoints grouped by domain
 │       ├── health.py
 │       └── triage.py
-├── tests/                   # pytest async, sin red real
-├── docs/                    # ver AGENTS.md
-├── Dockerfile               # multi-stage uv (Día 6)
-├── gunicorn.conf.py         # (Día 6)
+├── tests/                   # pytest async, no real network
+├── docs/                    # see AGENTS.md
+├── Dockerfile               # multi-stage uv (Day 6)
+├── gunicorn.conf.py         # (Day 6)
 └── pyproject.toml           # deps + ruff + pyright config
 ```
 
-**Estado al Día 1:** layout flat (`main.py` en raíz). Se migra a `src/` en Tarea #1.
+**Build:** `hatchling` declared in `[build-system]`. Package is installed editable with `uv sync`.
 
 ## Tests
 
-Se establece formalmente Día 5. Convenciones:
+Formally established on Day 5. Conventions:
 
-- `pytest` + `pytest-asyncio` con `asyncio_mode = "auto"` (en `pyproject.toml`).
-- Tests **nunca** llaman a Groq. La dependencia `get_llm_service` se sobreescribe con un mock vía `app.dependency_overrides`.
-- Comandos:
-  - `uv run pytest` — toda la suite
+- `pytest` + `pytest-asyncio` with `asyncio_mode = "auto"` (in `pyproject.toml`).
+- Tests **never** call Groq. The `get_llm_service` dependency is overridden with a mock via `app.dependency_overrides`.
+- Commands:
+  - `uv run pytest` — full suite
   - `uv run pytest tests/test_triage.py -v`
 
-## Calidad de código
+## Code quality
 
-- Formato: `uv run ruff format`
+- Format: `uv run ruff format`
 - Lint: `uv run ruff check --fix`
 - Types: `uv run pyright`
 - Hooks: `uv run pre-commit run --all-files`
 
-Pre-commit corre ruff + pyright. Si falla, arreglar el código — **no** usar `--no-verify`.
+Pre-commit runs ruff + pyright. If it fails, fix the code — **do not** use `--no-verify`.
 
-## Patrones acordados
+## Agreed patterns
 
-Algunos aún no están implementados pero ya son contrato. Respetarlos al agregar código.
+Some are not yet implemented but are already contractual. Respect them when adding code.
 
-### 1. Pydantic como single source of truth
-- **Qué:** cada payload de entrada/salida es un modelo Pydantic.
-- **Dónde:** `src/email_triage/schemas.py` (desde Día 2).
-- **Por qué:** FastAPI los usa para validación + serialización + docs simultáneamente.
+### 1. Pydantic as single source of truth
+- **What:** every input/output payload is a Pydantic model.
+- **Where:** `email_triage/schemas.py` (from Day 2).
+- **Why:** FastAPI uses them for validation + serialization + docs simultaneously.
 
-### 2. Dependency injection para servicios externos
-- **Qué:** `LLMService`, `Settings`, etc. se inyectan vía `Depends()`, no se instancian dentro del handler.
-- **Dónde:** `src/email_triage/deps.py` (Día 4).
-- **Por qué:** en tests se reemplaza con `app.dependency_overrides` sin monkeypatching.
+### 2. Dependency injection for external services
+- **What:** `LLMService`, `Settings`, etc. are injected via `Depends()`, not instantiated inside the handler.
+- **Where:** `email_triage/deps.py` (Day 4).
+- **Why:** in tests they are replaced with `app.dependency_overrides` without monkeypatching.
 
-### 3. Async por defecto en el critical path
-- **Qué:** handlers que tocan red son `async def`. Sync solo si la op es CPU-bound trivial.
-- **Dónde:** todo handler que llame `LLMService`.
-- **Por qué:** cada request espera 1-3s a Groq. Sync bloquea el worker — diferencia entre 5 y 500 concurrent.
+### 3. Async by default on the critical path
+- **What:** handlers that touch the network are `async def`. Sync only if the op is trivially CPU-bound.
+- **Where:** every handler that calls `LLMService`.
+- **Why:** each request waits 1-3s for Groq. Sync blocks the worker — the difference between 5 and 500 concurrent.
 
-### 4. Errores con código HTTP correcto
-- **Qué:** `try/except` alrededor de calls a LLM. Levantar `HTTPException` con status semántico (503 si Groq cae, 422 si el output del LLM no valida, 403 si falta API key).
-- **Dónde:** handlers de `routers/triage.py`.
-- **Por qué:** el caller (Zapier/Make) necesita códigos correctos para reintentar.
+### 4. Errors with correct HTTP codes
+- **What:** `try/except` around LLM calls. Raise `HTTPException` with semantic status (503 if Groq is down, 422 if LLM output doesn't validate, 403 if API key is missing).
+- **Where:** handlers in `routers/triage.py`.
+- **Why:** the caller (Zapier/Make) needs correct codes to retry.
 
-### 5. Logging estructurado con request_id
-- **Qué:** middleware genera `request_id` por request. Todos los logs lo incluyen. `structlog` en formato JSON.
-- **Dónde:** `src/email_triage/middleware.py` (Día 4).
-- **Por qué:** debug en producción sin pegar grep a stdout.
+### 5. Structured logging with request_id
+- **What:** middleware generates `request_id` per request. All logs include it. `structlog` in JSON format.
+- **Where:** `email_triage/middleware.py` (Day 4).
+- **Why:** debug in production without grepping stdout.
 
 ## Performance — critical path
 
-`POST /triage` → Groq → respuesta. Decisiones que dependen de esto:
+`POST /triage` → Groq → response. Decisions that depend on this:
 
-- **Cliente `httpx.AsyncClient` compartido** vía lifespan (Día 6), no uno por request.
-- **Workers:** `(2 × cores) + 1` con `UvicornWorker` debajo de Gunicorn.
-- **Streaming** (`POST /triage/stream`) para que el caller no espere generación completa.
+- **Shared `httpx.AsyncClient`** via lifespan (Day 6), not one per request.
+- **Workers:** `(2 × cores) + 1` with `UvicornWorker` under Gunicorn.
+- **Streaming** (`POST /triage/stream`) so the caller doesn't wait for the complete generation.
 
-## Límites del agente
+## Agent limits
 
-- **NO commitear**: el humano hace los commits. Nunca correr `git commit`, `git push`, `git amend`.
-- **NO llamar a Groq desde tests**: usar dependency override.
-- **NO inventar categorías**: las cuatro son `billing`, `refund`, `general`, `urgent`. Cambiarlas requiere actualizar este archivo + `schemas.py` + `docs/features/`.
-- **NO usar `--no-verify`**: si pre-commit falla, fijar el código.
-- **NO agregar features fuera del scope** del exec plan activo sin discutir con el humano primero.
-- **NO alucinar valores**: si un secreto o variable de entorno no está disponible, avisar y detenerse.
+- **DO NOT commit**: the human makes commits. Never run `git commit`, `git push`, `git amend`.
+- **DO NOT call Groq from tests**: use dependency override.
+- **DO NOT invent categories**: the five are `status`, `refunds`, `availability`, `shipments`, `prices` (defined in `email_triage/schemas.py:Category`). Changing them requires updating this file + `schemas.py` + the `SYSTEM_PROMPT` in `services/llm.py` + `docs/features/`.
+- **DO NOT use `--no-verify`**: if pre-commit fails, fix the code.
+- **DO NOT add features outside the scope** of the active exec plan without discussing with the human first.
+- **DO NOT hallucinate values**: if a secret or environment variable is not available, warn and stop.

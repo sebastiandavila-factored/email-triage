@@ -1,14 +1,17 @@
 # Features
 
-Walkthroughs de cada feature implementada en el codebase. Cada doc explica qué hace, cómo funciona, qué archivos toca y por qué se tomaron las decisiones.
+Walkthroughs of each feature implemented in the codebase. Each doc explains what it does, how it works, which files it touches and why the decisions were made.
 
-## Features existentes
+## Existing features
 
-_Ninguna entregada todavía. La primera será `01-health-endpoint.md` al cerrar Día 1._
+| # | Feature | Testing |
+|---|---|---|
+| 01 | [Day 1 — Skeleton + Tooling](01-day1-skeleton.md) | [Testing](../testing/01-day1-skeleton_testing.md) |
+| 02 | [Day 2 — Schemas and LLMService](02-schemas-and-llm.md) | [Testing](../testing/02-schemas-and-llm_testing.md) |
 
-## Convenciones
+## Conventions
 
-- **Un archivo por feature**, con prefijo cronológico (`01-`, `02-`, …).
-- El mismo número une exec plan, feature y testing: `docs/exec-plans/02-streaming.md` ↔ `docs/features/02-streaming.md` ↔ `docs/testing/02-streaming_testing.md`.
-- Cada feature linkea a su guía de testing en la sección final.
-- **Copiar [`TEMPLATE.md`](TEMPLATE.md) como punto de partida.**
+- **One file per feature**, with chronological prefix (`01-`, `02-`, …).
+- The same number links exec plan, feature and testing: `docs/exec-plans/02-streaming.md` ↔ `docs/features/02-streaming.md` ↔ `docs/testing/02-streaming_testing.md`.
+- Each feature links to its testing guide in the final section.
+- **Copy [`TEMPLATE.md`](TEMPLATE.md) as a starting point.**

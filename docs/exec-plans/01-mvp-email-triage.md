@@ -1,183 +1,182 @@
-# 01. MVP Email Triage API (7 días)
+# 01. MVP Email Triage API (7 days)
 
-**Estado:** 🚧 en progreso (Día 1)
-**Estimación:** 12.5 hrs total · <2 hrs/día
+**Status:** ✅ complete
+**Estimate:** 12.5 hrs total · <2 hrs/day
 
-## Intención
+## Intent
 
-Construir y desplegar el MVP del API descrito en `README.md`: tres endpoints (`/triage`, `/triage/stream`, `/health`), auth por API key, deploy en Render o Railway. Target al final del Día 7: un founder de e-commerce puede abrir `/docs`, pegar un email de muestra y ver un resultado de triage real.
+Build and deploy the API MVP described in `README.md`: three endpoints (`/triage`, `/triage/stream`, `/health`), API key auth, deploy on Render or Railway. Target at the end of Day 7: an e-commerce founder can open `/docs`, paste a sample email and see a real triage result.
 
-## Alcance
+## Scope
 
-**Incluido:**
+**Included:**
 - Endpoints `POST /triage`, `POST /triage/stream`, `GET /health`
-- Clasificación en 4 categorías (`billing`, `refund`, `general`, `urgent`)
-- Draft de respuesta con confidence score
-- Auth vía header `X-API-Key`
-- Logging estructurado con `request_id`
-- Tests automatizados (≥3) con dependency overrides
+- Classification into 5 categories (`status`, `refunds`, `availability`, `shipments`, `prices`)
+- Draft reply with confidence score
+- Auth via `X-API-Key` header
+- Structured logging with `request_id`
+- Automated tests (≥3) with dependency overrides
 - Docker multi-stage + Gunicorn + Uvicorn workers
-- Deploy con HTTPS
+- Deploy with HTTPS
 
-**Fuera (post-MVP):**
-- Multi-tenancy real (un mailbox = una API key persistida)
-- Persistencia (DB) de resultados
-- Webhooks de retorno
-- Métricas / observabilidad avanzada
-- Rate limiting fino (slowapi opcional en Día 7)
+**Out of scope (post-MVP):**
+- Real multi-tenancy (one mailbox = one persisted API key)
+- Result persistence (DB)
+- Return webhooks
+- Advanced metrics / observability
+- Fine-grained rate limiting (slowapi optional on Day 7)
 
-## Plan día por día
+## Day-by-day plan
 
-Cada día empieza con la lectura asignada de [fastapi.tiangolo.com](https://fastapi.tiangolo.com). Sin esa lectura, no se codea.
+Each day starts with the assigned reading from [fastapi.tiangolo.com](https://fastapi.tiangolo.com). Without that reading, no coding.
 
-### Día 0 — Pre-requisitos (15 min)
+### Day 0 — Prerequisites (15 min)
 
-- Instalar `uv` (`brew install uv` o `curl -LsSf https://astral.sh/uv/install.sh | sh`)
-- Crear cuenta en `console.groq.com` y obtener API key
+- Install `uv` (`brew install uv` or `curl -LsSf https://astral.sh/uv/install.sh | sh`)
+- Create account at `console.groq.com` and obtain API key
 
-### Día 1 — Skeleton + Tooling (2 hrs)
+### Day 1 — Skeleton + Tooling (2 hrs)
 
-**Lectura previa:** Python Types Intro · Virtual Environments · First Steps
+**Prior reading:** Python Types Intro · Virtual Environments · First Steps
 
-**Tareas:**
+**Tasks:**
 - [x] `uv init`, `uv add fastapi uvicorn httpx`
-- [x] `GET /health` funciona en `localhost:8000/docs`
-- [x] `.env` con `GROQ_API_KEY`, `.gitignore` configurado
-- [x] Contrato agente-humano (`CLAUDE.md`, `AGENTS.md`, `docs/`)
-- [ ] Migrar a `src/email_triage/` layout (ajustar `pyproject.toml` con `[tool.hatch.build.targets.wheel]` o `[tool.setuptools.packages.find]`)
-- [ ] Crear `.env.example` con keys vacías
-- [ ] `uv add --dev ruff pyright pre-commit`
-- [ ] Configurar `[tool.ruff]` (E, F, I, UP, B, SIM) y `[tool.pyright]` (strict) en `pyproject.toml`
-- [ ] `.pre-commit-config.yaml` con ruff (lint+format) y pyright
-- [ ] `uv run pre-commit install`
+- [x] `GET /health` works at `localhost:8000/docs`
+- [x] `.env` with `GROQ_API_KEY`, `.gitignore` configured
+- [x] Agent-human contract (`CLAUDE.md`, `AGENTS.md`, `docs/`)
+- [x] Migrate to `src/email_triage/` layout (hatchling with `[tool.hatch.build.targets.wheel] packages = ["src/email_triage"]`)
+- [x] Create `.env.example` with empty keys
+- [x] `uv add --dev ruff "pyright[nodejs]" pre-commit` (need `[nodejs]` because there's no node on the system)
+- [x] Configure `[tool.ruff]` (E, F, I, UP, B, SIM) and `[tool.pyright]` (strict) in `pyproject.toml`
+- [x] `.pre-commit-config.yaml` with ruff (lint+format) and pyright
+- [x] `uv run pre-commit install`
 
-**Deliverable:** `uv run uvicorn email_triage.main:app --reload` funciona, `/docs` carga, `pre-commit run --all-files` pasa.
+**Deliverable:** `uv run uvicorn email_triage.main:app --reload` works, `/docs` loads, `pre-commit run --all-files` passes.
 
-### Día 2 — Schemas + LLMService (2 hrs)
+### Day 2 — Schemas + LLMService (2 hrs)
 
-**Lectura previa:** Async / await · Request Body · Body Fields · Nested Models
+**Prior reading:** Async / await · Request Body · Body Fields · Nested Models
 
-**Tareas:**
-- [ ] `src/email_triage/schemas.py`:
-  - `Category(StrEnum)` con `billing | refund | general | urgent`
-  - `TriageRequest(subject: str, sender: EmailStr, body: str)`
-  - `TriageResponse(category: Category, draft_reply: str, confidence: float)` con validación `0 ≤ confidence ≤ 1`
-- [ ] `src/email_triage/services/llm.py`:
-  - `LLMService` async usando `httpx.AsyncClient`
+**Tasks:**
+- [x] `src/email_triage/schemas.py`:
+  - `Category(StrEnum)` with `status | refunds | availability | shipments | prices`
+  - `TriageRequest(subject: str, sender: EmailStr, body: str)` with `Field(min/max_length)`
+  - `TriageResponse(category: Category, draft_reply: str, confidence: float)` with `0 ≤ confidence ≤ 1` validation
+- [x] `src/email_triage/services/llm.py`:
+  - Async `LLMService` using `httpx.AsyncClient`
   - Method `triage(req: TriageRequest) -> TriageResponse`
-  - Prompt pidiendo JSON estructurado matching el schema
-  - Parsing con `TriageResponse.model_validate_json`
-- [ ] Smoke test manual
+  - Prompt requesting structured JSON matching the schema (`response_format: json_object`)
+  - Parsing with `TriageResponse.model_validate_json`
+- [x] Manual smoke test (`scripts/smoke_llm.py`, run with `uv run --env-file .env python scripts/smoke_llm.py`)
+- [x] `uv add "pydantic[email]"` for `EmailStr`
 
-**Documentar:** `docs/features/02-llm-service.md` + `docs/testing/02-llm-service_testing.md`
+**Document:** `docs/features/02-schemas-and-llm.md` + `docs/testing/02-schemas-and-llm_testing.md`
 
-### Día 3 — Endpoints + Streaming (2 hrs)
+### Day 3 — Endpoints + Streaming (2 hrs)
 
-**Lectura previa:** Response Model · Handling Errors · `StreamingResponse` con `text/event-stream`
+**Prior reading:** Response Model · Handling Errors · `StreamingResponse` with `text/event-stream`
 
-**Tareas:**
-- [ ] `src/email_triage/routers/triage.py`:
+**Tasks:**
+- [x] `src/email_triage/routers/triage.py`:
   - `POST /triage` → `TriageResponse`
   - `POST /triage/stream` → `StreamingResponse` SSE
-  - `try/except` en LLM → `HTTPException(503)`
-- [ ] `src/email_triage/routers/health.py`: mover `/health` aquí
-- [ ] Registrar routers en `main.py` con `app.include_router(...)`
+  - `try/except` on LLM → `HTTPException(503)`
+- [x] `src/email_triage/routers/health.py`: move `/health` here
+- [x] Register routers in `main.py` with `app.include_router(...)`
 
-**Documentar:** `03-triage-endpoint.md`, `04-streaming.md`
+**Document:** `03-triage-endpoint.md`, `04-streaming.md` ✅
 
-### Día 4 — Config + Auth + Middleware (1.5 hrs)
+### Day 4 — Config + Auth + Middleware (1.5 hrs)
 
-**Lectura previa:** Settings (pydantic-settings) · Dependencies · Security (API Key) · Middleware
+**Prior reading:** Settings (pydantic-settings) · Dependencies · Security (API Key) · Middleware
 
-**Tareas:**
-- [ ] `uv add pydantic-settings structlog`
-- [ ] `src/email_triage/config.py`: `Settings(BaseSettings)` con `groq_api_key`, `groq_model`, `api_key`
-- [ ] `src/email_triage/deps.py`:
-  - `get_settings()` cached con `@lru_cache`
-  - `verify_api_key(x_api_key: str = Header(...))` raise 403 si no matchea
-  - `get_llm_service()` retorna instancia compartida
-- [ ] Aplicar `Depends(verify_api_key)` a `/triage` y `/triage/stream`
-- [ ] `src/email_triage/middleware.py`: middleware que genera `request_id`, mide tiempo, loggea con structlog
-- [ ] Configurar structlog formato JSON
+**Tasks:**
+- [x] `uv add pydantic-settings structlog`
+- [x] `src/email_triage/config.py`: `Settings(BaseSettings)` with `groq_api_key`, `groq_model`, `api_key`
+- [x] `src/email_triage/deps.py`:
+  - `get_settings()` cached with `@lru_cache`
+  - `verify_api_key(x_api_key: str | None = Header())` raise 403 if missing or not matching
+  - `get_llm_service()` cached with `@lru_cache`, returns shared instance
+- [x] Apply `Depends(verify_api_key)` at router level on `/triage` and `/triage/stream`
+- [x] `src/email_triage/middleware.py`: middleware that generates `request_id`, measures time, logs with structlog
+- [x] Configure structlog JSON format with `contextvars` for `request_id`
 
-**Documentar:** `05-auth.md`, `06-logging.md`
+**Document:** `05-auth.md`, `06-logging.md` ✅
 
-### Día 5 — Tests + Background Tasks + Refactor a Pydantic AI (2 hrs)
+### Day 5 — Tests + Background Tasks + Refactor to Pydantic AI (2 hrs)
 
-**Lectura previa:** Testing · Async Tests · Dependency Overrides · Background Tasks
+**Prior reading:** Testing · Async Tests · Dependency Overrides · Background Tasks
 
-**Tareas:**
-- [ ] `uv add --dev pytest pytest-asyncio`
-- [ ] `[tool.pytest.ini_options] asyncio_mode = "auto"` en `pyproject.toml`
-- [ ] `tests/conftest.py`: fixture `client` con `TestClient`, override de `get_llm_service` con mock
-- [ ] `tests/test_health.py`: `GET /health` retorna 200
-- [ ] `tests/test_triage.py`:
-  - happy path retorna shape correcto
-  - sin `X-API-Key` retorna 403
-  - mock de Groq down → 503
-- [ ] Background task en `/triage`: loggear resultado después de responder
-- [ ] **Refactor LLMService a Pydantic AI:**
-  - `uv add pydantic-ai-slim[groq]`
-  - Reemplazar httpx crudo por `Agent(GroqModel(...), result_type=TriageResponse)`
-  - Tests siguen pasando sin cambios (mismo schema)
-  - Actualizar CLAUDE.md §Stack con la nueva dependencia
+**Tasks:**
+- [x] `uv add --dev pytest pytest-asyncio`
+- [x] `[tool.pytest.ini_options] asyncio_mode = "auto"` in `pyproject.toml`
+- [x] `tests/conftest.py`: fixtures `client` and `failing_client` with `TestClient` + `dependency_overrides`
+- [x] `tests/test_health.py`: GET /health → 200 + X-Request-Id header
+- [x] `tests/test_triage.py`: 7 tests — happy path, 403 (x2), 422, 503, SSE 403, SSE events
+- [x] Background task in `/triage`: `BackgroundTasks` logs result with structlog after responding
+- [x] **Refactor LLMService to Pydantic AI:**
+  - `uv add pydantic-ai-slim[groq]` (v1.104.0)
+  - `Agent(GroqModel(...), output_type=TriageResponse)` — automatic parsing
+  - `LLMError(RuntimeError)` as provider exception wrapper
+  - 9 tests still passing without changes
+  - CLAUDE.md §Stack updated
 
-**Documentar:** `07-tests.md`, `08-pydantic-ai-refactor.md`
+**Document:** `07-tests.md`, `08-pydantic-ai-refactor.md` ✅
 
-### Día 6 — Producción (Gunicorn + Docker + Lifespan) (2 hrs)
+### Day 6 — Production (Gunicorn + Docker + Lifespan) (2 hrs)
 
-**Lectura previa:** Run Manually · Server Workers · Docker · Lifespan
+**Prior reading:** Run Manually · Server Workers · Docker · Lifespan
 
-**Tareas:**
-- [ ] Lifespan handler en `main.py`: crear `httpx.AsyncClient` compartido al startup, cerrar al shutdown
-- [ ] `gunicorn.conf.py`: `worker_class = "uvicorn.workers.UvicornWorker"`, `workers = (2*cores)+1`, `timeout = 120`, `bind = "0.0.0.0:8000"`
-- [ ] `Dockerfile` multi-stage:
-  - Stage 1: `python:3.14-slim` + `uv sync --frozen --no-dev`
-  - Stage 2: copy venv, `CMD ["gunicorn", "-c", "gunicorn.conf.py", "email_triage.main:app"]`
-- [ ] Healthcheck en Dockerfile
+**Tasks:**
+- [x] Lifespan handler in `main.py`: warm-up of `get_llm_service()` + log startup/shutdown
+- [x] `gunicorn.conf.py`: `UvicornWorker`, `workers=(2×CPUs)+1`, `timeout=120`, `keepalive=5`
+- [x] `Dockerfile` multi-stage:
+  - Stage 1: `python:3.14-slim` + uv + `uv sync --frozen --no-dev`
+  - Stage 2: copy `.venv/` + `src/`, CMD gunicorn
+- [x] Healthcheck in Dockerfile (python urllib)
+- [x] `.dockerignore` with `.env`, `.venv`, `tests/`, `docs/`
 
-**Documentar:** `09-deploy-config.md`
+**Document:** `09-deploy-config.md` ✅
 
-### Día 7 — Deploy + Polish (1.5 hrs)
+### Day 7 — Deploy + Polish (1.5 hrs)
 
-**Lectura previa:** Behind a Proxy · Deployment Concepts · Metadata + Docs URLs
+**Prior reading:** Behind a Proxy · Deployment Concepts · Metadata + Docs URLs
 
-**Tareas:**
-- [ ] `root_path` en FastAPI config si el provider usa prefijo
-- [ ] Título, descripción, versión, contacto en `FastAPI(...)`
-- [ ] Deploy a Render o Railway (HTTPS automático)
-- [ ] (Opcional) Rate limiting con `slowapi`
-- [ ] Verificar `/docs` público funciona
-- [ ] **SHIP:** contactar un founder de e-commerce, dar 1 mes gratis
+**Tasks:**
+- [x] Title, description, version, contact in `FastAPI(...)` ✅
+- [x] Rate limiting with `slowapi` (20 req/min by IP) ✅
+- [x] Logfire OTEL: `instrument_pydantic_ai()` + `instrument_fastapi(app)` ✅
+- [x] `render.yaml` for deploy with Dockerfile ✅
+- [ ] Deploy on Render and verify public `/docs` works
+- [ ] **SHIP:** contact an e-commerce founder, give 1 month free
 
-**Documentar:** `10-deploy.md` con URL del API y runbook de rollback
+**Document:** `10-deploy.md` with rollback runbook ✅
 
-## Decisiones de diseño
+## Design decisions
 
-| Decisión | Alternativa descartada | Razón |
+| Decision | Discarded alternative | Reason |
 |---|---|---|
-| Groq free tier desde Día 2 | OpenAI / Anthropic desde inicio | Unit economics: $9/mailbox necesita LLM near-zero-cost para validar |
-| Pydantic AI en Día 5 | httpx crudo permanente | Provider-agnostic + parsing automático a `TriageResponse` |
-| Pydantic AI en Día 5 (no Día 2) | Pydantic AI desde Día 2 | El humano quiere aprender httpx crudo primero; refactor después |
-| `src/` layout | Flat (`app/`) | Práctica estándar 2026: previene bugs de import en tests |
-| ruff + pyright | mypy + black + isort | Stack moderno; una herramienta para format+lint |
-| Pydantic AI vs LangChain | LangChain | Overkill para 1 llamada; LangGraph solo para agentes complejos |
-| `StrEnum` para categorías | `Literal[...]` | Mejor serialización en OpenAPI docs |
-| Provider abstracto vía env var desde Día 4 | Hardcoded Groq | Switch a Anthropic con una variable cuando haya margen |
+| Groq free tier from Day 2 | OpenAI / Anthropic from the start | Unit economics: $9/mailbox needs near-zero-cost LLM to validate |
+| Pydantic AI on Day 5 | Permanent raw httpx | Provider-agnostic + automatic parsing to `TriageResponse` |
+| Pydantic AI on Day 5 (not Day 2) | Pydantic AI from Day 2 | The human wants to learn raw httpx first; refactor later |
+| `src/` layout | Flat (`app/`) | Standard practice 2026: prevents import bugs in tests |
+| ruff + pyright | mypy + black + isort | Modern stack; one tool for format+lint |
+| Pydantic AI vs LangChain | LangChain | Overkill for 1 call; LangGraph only for complex agents |
+| `StrEnum` for categories | `Literal[...]` | Better serialization in OpenAPI docs |
+| Abstract provider via env var from Day 4 | Hardcoded Groq | Switch to Anthropic with one variable when margin allows |
 
-## Riesgos / Open questions
+## Risks / Open questions
 
-- **Python 3.14 + Gunicorn:** 3.14 es muy nuevo. Si Gunicorn da problemas en Día 6, fallback a Python 3.13. Sospechoso #1 si algo rompe.
-- **Groq rate limit en free tier:** validar early que aguanta 5 req/s. Si no, considerar Anthropic con créditos iniciales.
-- **Streaming + parsing estructurado:** Pydantic AI streamea tokens pero `TriageResponse` solo está completo al final. Probablemente streamear solo `draft_reply` y devolver categoría/confidence en un último evento del stream.
-- **Hatch vs setuptools para `src/` layout:** decidir Día 1 según lo que uv recomiende como default.
+- **Python 3.14 + Gunicorn:** 3.14 is very new. If Gunicorn has issues on Day 6, fall back to Python 3.13. Suspect #1 if something breaks.
+- **Groq rate limit on free tier:** validate early that it handles 5 req/s. If not, consider Anthropic with initial credits.
+- **Streaming + structured parsing:** Pydantic AI streams tokens but `TriageResponse` is only complete at the end. Probably stream only `draft_reply` and return category/confidence in a final stream event.
+- **Hatch vs setuptools for `src/` layout:** decide on Day 1 based on what uv recommends as default.
 
-## Done cuando
+## Done when
 
-- [ ] Los tres endpoints funcionan en producción detrás de HTTPS
-- [ ] Auth por API key funciona y los tests lo verifican
-- [ ] Tests automatizados pasan sin internet
-- [ ] `docs/features/` tiene un walkthrough por feature implementada
-- [ ] `docs/testing/` tiene una guía por feature
-- [ ] Un founder real probó `/docs` interactivo con un email de muestra
-- [ ] Este archivo cambia a estado ✅
+- [ ] The three endpoints work in production behind HTTPS
+- [x] API key auth works and tests verify it ✅
+- [x] Automated tests pass without internet (9/9) ✅
+- [x] `docs/features/` has a walkthrough per implemented feature ✅
+- [x] `docs/testing/` has a guide per feature ✅
+- [ ] A real founder tested `/docs` interactive with a sample email

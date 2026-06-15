@@ -1,89 +1,139 @@
-# AGENTS.md — Mapa del proyecto y contrato de colaboración
+# AGENTS.md — Project Map and Collaboration Contract
 
-Orienta a agentes AI: dónde está cada cosa, cómo trabajar con el humano, qué documentar.
+Orients AI agents: where everything is, how to work with the human, what to document.
 
-## 1. Mapa de documentación
+## 1. Documentation map
 
-| Qué buscás | Dónde está |
+| Looking for | Where it is |
 |---|---|
-| Convenciones técnicas (stack, patrones, límites del agente) | [CLAUDE.md](CLAUDE.md) |
-| Plan de implementación día por día | [docs/exec-plans/01-mvp-email-triage.md](docs/exec-plans/01-mvp-email-triage.md) |
-| Walkthroughs por feature | [docs/features/](docs/features/) |
-| Protocolos de testing manual | [docs/testing/](docs/testing/) |
-| Quickstart y endpoints públicos | [README.md](README.md) |
+| Technical conventions (stack, patterns, agent limits) | [CLAUDE.md](CLAUDE.md) |
+| Day-by-day implementation plan | [docs/exec-plans/01-mvp-email-triage.md](docs/exec-plans/01-mvp-email-triage.md) |
+| Feature walkthroughs | [docs/features/](docs/features/) |
+| Manual testing protocols | [docs/testing/](docs/testing/) |
+| Quickstart and public endpoints | [README.md](README.md) |
 
-## 2. Mapa de código — quién posee qué
+## 2. Code map — who owns what
 
-| Dominio | Archivos clave | Leer antes de tocar |
+| Domain | Key files | Read before touching |
 |---|---|---|
-| App entrypoint | `src/email_triage/main.py` | CLAUDE.md §Estructura · exec-plans/01 §Día 1 y 6 |
-| Schemas (request/response) | `src/email_triage/schemas.py` | CLAUDE.md §Patrones #1 · exec-plans/01 §Día 2 |
-| LLM provider | `src/email_triage/services/llm.py` | CLAUDE.md §Patrones #3 · exec-plans/01 §Día 2 y 5 |
-| Endpoints | `src/email_triage/routers/triage.py`, `routers/health.py` | CLAUDE.md §Patrones #4 · exec-plans/01 §Día 3 |
-| Config | `src/email_triage/config.py` | exec-plans/01 §Día 4 |
-| Auth (API key) | `src/email_triage/deps.py` | CLAUDE.md §Patrones #2 · exec-plans/01 §Día 4 |
-| Middleware (logging) | `src/email_triage/middleware.py` | CLAUDE.md §Patrones #5 · exec-plans/01 §Día 4 |
-| Tests | `tests/` | CLAUDE.md §Tests · exec-plans/01 §Día 5 |
-| Deploy | `Dockerfile`, `gunicorn.conf.py` | exec-plans/01 §Día 6 y 7 |
+| App entrypoint | `src/email_triage/main.py` | CLAUDE.md §Structure · exec-plans/01 §Day 1 and 6 |
+| Schemas (request/response) | `src/email_triage/schemas.py` | CLAUDE.md §Patterns #1 · exec-plans/01 §Day 2 |
+| LLM provider | `src/email_triage/services/llm.py` | CLAUDE.md §Patterns #3 · exec-plans/01 §Day 2 and 5 |
+| Endpoints | `src/email_triage/routers/triage.py`, `routers/health.py` | CLAUDE.md §Patterns #4 · exec-plans/01 §Day 3 |
+| Config | `src/email_triage/config.py` | exec-plans/01 §Day 4 |
+| Auth (API key) | `src/email_triage/deps.py` | CLAUDE.md §Patterns #2 · exec-plans/01 §Day 4 |
+| Middleware (logging) | `src/email_triage/middleware.py` | CLAUDE.md §Patterns #5 · exec-plans/01 §Day 4 |
+| Tests | `tests/` | CLAUDE.md §Tests · exec-plans/01 §Day 5 |
+| Deploy | `Dockerfile`, `gunicorn.conf.py`, `render.yaml` | exec-plans/01 §Day 6 and 7 |
+| Rate limiting | `src/email_triage/deps.py` (`limiter`) · `routers/triage.py` | CLAUDE.md §Stack · features/10 |
+| Observability | `src/email_triage/main.py` (logfire setup) | CLAUDE.md §Stack · features/10 |
 
-**Día 1:** la mayoría de estos archivos aún no existen. Crear según el plan.
+**Day 1:** most of these files don't exist yet. Create them according to the plan.
 
-## 3. Workflow de desarrollo y validación
+## 3. Development and validation workflow
 
 **Roles:**
 
-- **Humano (Arquitecto):** define intención, aprueba merges, hace los commits, valida UX siguiendo `docs/testing/`.
-- **Agente (Ejecutor):** lee docs antes de editar, implementa, corre tests automatizados, documenta. **Nunca** hace commits ni push.
+- **Human (Architect):** defines intent, approves merges, makes commits, validates UX following `docs/testing/`.
+- **Agent (Executor):** reads docs before editing, implements, runs automated tests, documents. **Never** commits or pushes.
 
-**Regla:** el agente valida en teoría (tests + types). El humano valida en la práctica (UX, edge cases reales). Si el agente se bloquea (link inaccesible, dependencia rota, ambigüedad), debe avisar y **no alucinar valores**.
+**Rule:** the agent validates in theory (tests + types). The human validates in practice (UX, real edge cases). If the agent is blocked (inaccessible link, broken dependency, ambiguity), it must warn and **not hallucinate values**.
 
-**Ciclo por feature:**
+**Cycle per feature:**
 
-1. **PLAN** — Si la feature toca ≥3 archivos, introduce dependencia nueva o cambia un patrón, escribir/actualizar `docs/exec-plans/NN-feature.md` antes de codear.
-2. **IMPLEMENTAR** — Branch nueva. Tests automatizados obligatorios (unit + integration con dependency overrides).
-3. **DOCUMENTAR** — Crear `docs/features/NN-feature.md` + `docs/testing/NN-feature_testing.md`. Actualizar `CLAUDE.md` si surge un patrón nuevo. Actualizar este archivo si cambia el mapa de código.
-4. **EVALUATE** — Humano sigue `docs/testing/NN-feature_testing.md`. Si encuentra blockers o bugs, vuelve a paso 2.
-5. **DELIVER** — Humano hace commit, push y PR.
+1. **PLAN** — If the feature touches ≥3 files, introduces a new dependency or changes a pattern, write/update `docs/exec-plans/NN-feature.md` before coding.
+2. **IMPLEMENT** — New branch. Automated tests mandatory (unit + integration with dependency overrides).
+3. **DOCUMENT** — Create `docs/features/NN-feature.md` + `docs/testing/NN-feature_testing.md`. Update `CLAUDE.md` if a new pattern emerges. Update this file if the code map changes.
+4. **EVALUATE** — Human follows `docs/testing/NN-feature_testing.md`. If blockers or bugs are found, go back to step 2.
+5. **DELIVER** — Human commits, pushes and opens PR.
 
-## 4. Protocolo de documentación
+## 4. Documentation protocol
 
-Obligatorio al cerrar una feature:
+Required when closing a feature:
 
-- **Prefijo cronológico:** `01-`, `02-`, etc. en `docs/exec-plans/`, `docs/features/`, `docs/testing/`. El mismo número une los tres por feature (ej. `02-streaming.md` en cada carpeta, `02-streaming_testing.md` en testing).
-- **Walkthrough:** copiar `docs/features/TEMPLATE.md` → `docs/features/NN-feature.md`. Llenarlo.
-- **Guía de testing:** copiar `docs/testing/TEMPLATE.md` → `docs/testing/NN-feature_testing.md`. Incluir happy path, edge cases preventivos, workarounds si hay blockers técnicos, verificación en logs.
-- **Actualizar CLAUDE.md:** solo si la feature establece un patrón nuevo o cambia uno existente.
-- **Actualizar AGENTS.md:** solo si cambia el mapa de código (nueva carpeta, nuevo dominio, nuevo archivo "leer antes de tocar").
-- **Exec plans:** obligatorios para features ≥3 archivos o cambios de dependencias. No hace falta para fixes triviales.
+- **Chronological prefix:** `01-`, `02-`, etc. in `docs/exec-plans/`, `docs/features/`, `docs/testing/`. The same number links all three per feature (e.g. `02-streaming.md` in each folder, `02-streaming_testing.md` in testing).
+- **Walkthrough:** copy `docs/features/TEMPLATE.md` → `docs/features/NN-feature.md`. Fill it in.
+- **Testing guide:** copy `docs/testing/TEMPLATE.md` → `docs/testing/NN-feature_testing.md`. Include happy path, preventive edge cases, workarounds if there are technical blockers, log verification.
+- **Update CLAUDE.md:** only if the feature establishes a new pattern or changes an existing one.
+- **Update AGENTS.md:** only if the code map changes (new folder, new domain, new "read before touching" file).
+- **Exec plans:** mandatory for features ≥3 files or dependency changes. Not needed for trivial fixes.
 
-## 5. Estado actual y próximos pasos
+## 5. Current state and next steps
 
-**Existente (Día 1, parcial):**
-- `main.py` — FastAPI app con `GET /health` ✅
-- `pyproject.toml` con FastAPI, Uvicorn, httpx ✅
-- `.env` con `GROQ_API_KEY` (gitignored) ✅
-- `.gitignore` ✅
-- `README.md`, `CLAUDE.md`, `AGENTS.md`, `docs/` ✅ (este commit)
+**Existing (Day 1 + 2 complete):**
+- `src/email_triage/main.py` — FastAPI app with `GET /health` ✅
+- `src/email_triage/schemas.py` — `Category` (StrEnum, 5 values), `TriageRequest`, `TriageResponse` ✅
+- `src/email_triage/services/llm.py` — async `LLMService` with httpx against Groq ✅
+- `scripts/smoke_llm.py` — manual smoke test against real Groq ✅
+- `pyproject.toml` with FastAPI, Uvicorn, httpx, `pydantic[email]` + hatchling ✅
+- `.env` with `GROQ_API_KEY` (gitignored), `.env.example` committable ✅
+- Tooling: ruff + pyright + pre-commit configured and passing ✅
+- `README.md`, `CLAUDE.md`, `AGENTS.md`, `docs/` (with walkthroughs 01 and 02) ✅
 
-**Pendiente para cerrar Día 1:**
-- Migrar a `src/email_triage/` layout
-- Crear `.env.example`
-- Setup ruff + pyright en `pyproject.toml`
-- Setup pre-commit hooks
-- Primer commit del Día 1 (lo hace el humano)
+**Completed (Day 3):**
+- `src/email_triage/routers/triage.py` — `POST /triage` and `POST /triage/stream` (SSE) ✅
+- `src/email_triage/routers/health.py` — `/health` moved here ✅
+- `try/except` for Groq down → `HTTPException(503)` ✅
 
-**Próximo (Día 2):**
-- Schemas Pydantic (`TriageRequest`, `TriageResponse`, `Category`)
-- `LLMService` async con httpx contra Groq
+**Completed (Day 4):**
+- `src/email_triage/config.py` — `Settings(BaseSettings)` with pydantic-settings ✅
+- `src/email_triage/deps.py` — `get_settings()`, `verify_api_key()`, `get_llm_service()` with @lru_cache ✅
+- Auth `X-API-Key` on `/triage` and `/triage/stream` via router-level dependency ✅
+- `src/email_triage/middleware.py` — request_id + structlog JSON + X-Request-Id header ✅
 
-Plan completo de 7 días: [docs/exec-plans/01-mvp-email-triage.md](docs/exec-plans/01-mvp-email-triage.md).
+**Completed (Day 5):**
+- `tests/conftest.py` with fixtures `client` + `failing_client` (dependency_overrides) ✅
+- `tests/test_health.py` + `tests/test_triage.py` — 9 tests, no Groq calls ✅
+- Background task in `POST /triage` with `BackgroundTasks` + structlog ✅
+- `LLMService` refactored to Pydantic AI (`pydantic-ai-slim[groq]` v1.104.0) ✅
+- `LLMError(RuntimeError)` as LLM service exception contract ✅
 
-## 6. Principios del proyecto
+**Completed (exec-plan 11 — real streaming):**
+- `StreamingTriageResponse` in `schemas.py` — parallel model with optional fields for incremental validation ✅
+- `LLMService.triage_stream()` — `@asynccontextmanager` over `agent.run_stream()` with `output_type=StreamingTriageResponse` ✅
+- `triage_stream` handler rewritten: pre-fetch for pre-stream 503, delta encoding, log at generator close ✅
+- **Real token-level streaming** via `stream_output(debounce_by=None)` — TTFT target < 500 ms ✅
+- 3 new tests: meta-before-data, draft_reply reconstruction from deltas, 503 on open failure ✅
+- 10/10 tests passing, ruff + pyright clean ✅
 
-1. **El proposal es la verdad del scope.** No agregar features fuera de los tres endpoints (`/triage`, `/triage/stream`, `/health`) hasta que el MVP esté en producción.
-2. **Día corto (<2 hrs) con lectura primero.** Cada día empieza leyendo las docs oficiales de FastAPI asignadas en el plan. Sin esa lectura, no se codea.
-3. **Pydantic es el contrato.** Si la forma del dato cambia, cambia el schema primero. El handler solo orquesta.
-4. **Dependency injection siempre que toque I/O externo.** Hace los tests triviales y el código más legible.
-5. **Errores con código HTTP correcto.** Zapier/Make necesitan 4xx vs 5xx semánticos para reintentar. Nunca devolver 500 con stack trace.
-6. **El margen sobre $9/mailbox define decisiones.** Si una dependencia o provider rompe el unit economics, se descarta — por más cool que sea.
-7. **El humano commitea.** El agente nunca corre `git commit`, `git push` ni `git amend`.
+**Completed (exec-plan 12 — Logfire observability):**
+- `src/email_triage/observability.py` — centralized catalog of counters/histograms/gauge ✅
+- `logfire.configure` with `scrubbing=ScrubbingOptions(sender redacted)`, `sampling=SamplingOptions(head + tail)` ✅
+- `instrument_pydantic()`, `instrument_system_metrics()`, `instrument_httpx()` active ✅
+- structlog ↔ traces correlation: `trace_id` + `span_id` in every JSON log ✅
+- Spans `triage.sync` / `triage.stream` with attributes: `endpoint`, `email.*_chars`, `triage.result.*`, `triage.stream.ttft_ms` ✅
+- `LLM_IN_FLIGHT` gauge + `LLM_ERRORS_TOTAL` in `services/llm.py`; `AUTH_FAILURES_TOTAL` in `deps.py` ✅
+- `scripts/measure_ttft.py` — measures client-side TTFT with p50/p95/max ✅
+- 5 new tests in `tests/test_observability.py` with `capfire` fixture ✅
+- `config.py` — fields `logfire_send_to_logfire`, `logfire_sample_rate`, `logfire_environment` ✅
+- 17/17 tests passing, ruff + pyright clean ✅
+
+**Completed (Day 6):**
+- Lifespan `@asynccontextmanager` in `main.py` — eager init of `LLMService` + structlog startup/shutdown ✅
+- `gunicorn.conf.py` — `UvicornWorker`, `(2×CPUs)+1` workers, `timeout=120` ✅
+- `Dockerfile` multi-stage with uv — builder + runtime, no `.env` or build tools ✅
+- `.dockerignore` — `.env`, `.venv`, `tests/`, `docs/` excluded ✅
+
+**Completed (Day 7):**
+- Metadata in `FastAPI(...)`: title, summary, description, contact, license ✅
+- Rate limiting `slowapi` 20 req/min by IP on `/triage` and `/triage/stream` ✅
+- OTEL observability with Logfire: `instrument_pydantic_ai()` + `instrument_fastapi(app)` ✅
+- `render.yaml` with `env: docker` pointing to multi-stage Dockerfile ✅
+- `.env.example` updated with `LOGFIRE_TOKEN` and `LOGFIRE_SEND_TO_LOGFIRE` ✅
+- 9/9 tests passing, ruff + pyright clean ✅
+
+**Pending (post-code):**
+- Deploy on Render and verify public `/docs`
+- SHIP: contact an e-commerce founder, give 1 month free
+
+Full 7-day plan: [docs/exec-plans/01-mvp-email-triage.md](docs/exec-plans/01-mvp-email-triage.md).
+
+## 6. Project principles
+
+1. **The proposal is the truth of scope.** Do not add features outside the three endpoints (`/triage`, `/triage/stream`, `/health`) until the MVP is in production.
+2. **Short day (<2 hrs) with reading first.** Each day starts by reading the official FastAPI docs assigned in the plan. Without that reading, no coding.
+3. **Pydantic is the contract.** If the shape of the data changes, change the schema first. The handler only orchestrates.
+4. **Dependency injection whenever touching external I/O.** Makes tests trivial and the code more readable.
+5. **Errors with correct HTTP code.** Zapier/Make need semantic 4xx vs 5xx to retry. Never return 500 with a stack trace.
+6. **The $9/mailbox margin drives decisions.** If a dependency or provider breaks unit economics, it's discarded — no matter how cool it is.
+7. **The human commits.** The agent never runs `git commit`, `git push` or `git amend`.
