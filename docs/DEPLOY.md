@@ -33,7 +33,7 @@ Valida el **camino CORS real** en local (sin el proxy de Vite, que lo enmascara)
 ```bash
 # Terminal 1 — backend con CORS para el SPA local
 cd email-triage
-CORS_ORIGINS='["http://localhost:5173"]' uv run fastapi dev
+CORS_ORIGINS=http://localhost:5173 uv run fastapi dev
 
 # Terminal 2 — frontend apuntando DIRECTO al backend (salta el proxy)
 echo 'VITE_API_URL=http://localhost:8000' > frontend/.env.local
@@ -105,7 +105,7 @@ uv run fastapi cloud env set LOGFIRE_ENVIRONMENT "production"        # activa co
 uv run fastapi cloud env set GOOGLE_CLIENT_ID    "<google-client-id>"
 uv run fastapi cloud env set GOOGLE_REDIRECT_URI "https://<app>.fastapicloud.dev/auth/callback"
 uv run fastapi cloud env set FRONTEND_URL        "https://placeholder"             # se corrige en Fase 4
-uv run fastapi cloud env set CORS_ORIGINS        "[]"                              # se corrige en Fase 4
+uv run fastapi cloud env set CORS_ORIGINS        ""                                # se corrige en Fase 4
 ```
 
 Verifica: `uv run fastapi cloud env list`.
@@ -148,7 +148,7 @@ Con la URL real de Vercel, actualiza el backend y redeploya:
 
 ```bash
 uv run fastapi cloud env set FRONTEND_URL "https://<tu-app>.vercel.app"
-uv run fastapi cloud env set CORS_ORIGINS '["https://<tu-app>.vercel.app"]'
+uv run fastapi cloud env set CORS_ORIGINS "https://<tu-app>.vercel.app"   # comas si hay varios
 uv run fastapi deploy
 ```
 
@@ -186,6 +186,7 @@ En `https://<tu-app>.vercel.app`, con la consola del navegador abierta:
 |---|---|---|
 | `No 'Access-Control-Allow-Origin'` en consola | `CORS_ORIGINS` no es el origen **exacto** de Vercel (barra final / http vs https / subdominio) | `env set CORS_ORIGINS` con el valor exacto + `fastapi deploy` |
 | Boot falla con `ModuleNotFoundError: email_triage` | regresión del layout `src/` | el paquete debe estar en la raíz (`email_triage/`), ver postmortem 01 |
+| Cambios de env "no aplican" / 503 viejo persiste | el deploy nuevo **crashea al boot** (p.ej. `SettingsError` por una env mal formada) → FastAPI Cloud sigue sirviendo el deploy sano anterior | `fastapi cloud logs` para ver el traceback de arranque; arreglar la var y `fastapi deploy` |
 | App arranca pero DB falla | URL con driver/SSL mal, o usaste el endpoint `-pooler` | `postgresql+asyncpg://…?sslmode=require`, endpoint **directo** de Neon |
 | `prepared statement "__asyncpg_…" already exists` | usaste el pooler de Neon (PgBouncer) | cambia al endpoint directo |
 | F5 en `/dashboard` → 404 | falta rewrite SPA | `frontend/vercel.json` (ya incluido); redeploy en Vercel |

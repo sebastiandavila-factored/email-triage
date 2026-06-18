@@ -346,8 +346,10 @@ Convención: **S** = seguridad · **C** = falla conceptual · **B** = bug ·
 > · Track 1 — S1, S8, C4, C7, B2 (OAuth2 Google →
 >   [WALKTHROUGH-oauth2-google.md](WALKTHROUGH-oauth2-google.md)).
 > · Extra — P5 (CORS config-gated, prerequisito del deploy en Vercel).
+> · Plan 21 (team workspaces) — **C6** cerrado (RBAC por-workspace via `require_scope`).
+> Guía consolidada de auth: [WALKTHROUGH-auth.md](WALKTHROUGH-auth.md).
 > **Pendiente menor**: B5 (Swagger Authorize). **No abordados aún**: S6, S7, S9,
-> S10, S11, C3, C5, C6, P1, P2, P4, P6, P7.
+> S10, S11, C3, C5, P1, P2, P4, P6, P7.
 
 ### Seguridad
 

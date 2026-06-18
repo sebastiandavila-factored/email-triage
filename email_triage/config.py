@@ -22,12 +22,21 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     frontend_url: str = "http://localhost:5173"
     bcrypt_rounds: int = 12
-    # Browser origins allowed to call the API cross-origin (CORS). Empty in dev
-    # (Vite proxy → same-origin, no CORS needed). Set on Render to the deployed
-    # frontend origin, e.g. CORS_ORIGINS='["https://email-triage.vercel.app"]'.
-    cors_origins: list[str] = []
+    # Browser origins allowed to call the API cross-origin (CORS), comma-separated.
+    # Empty in dev (Vite proxy → same-origin). In prod set the frontend origin(s),
+    # e.g. CORS_ORIGINS=https://email-triage.vercel.app
+    # A plain string (not list[str]) so an env value can't fail JSON parsing and
+    # crash startup; parsing is tolerant of stray brackets/quotes.
+    cors_origins: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        # Tolerant parse: comma-separated, ignoring stray brackets/quotes/space
+        # so a value like `["https://a"]` or `https://a, https://b` both work.
+        parts = (o.strip().strip("\"'[] ") for o in self.cors_origins.split(","))
+        return [p for p in parts if p]
 
     @model_validator(mode="after")
     def _reject_insecure_prod_secret(self) -> Settings:

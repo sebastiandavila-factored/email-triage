@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import time
 import uuid
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Annotated
@@ -201,6 +202,60 @@ CurrentUserDep = Annotated[SessionContext, Security(get_current_user, scopes=[])
 ManageWorkspaceDep = Annotated[
     SessionContext, Security(get_current_user, scopes=["workspace:manage"])
 ]
+
+
+# ── Per-workspace RBAC (scoped by {tid} in the path) ──────────────────────────
+
+
+@dataclass(frozen=True)
+class WorkspaceContext:
+    user_id: uuid.UUID
+    tenant_id: uuid.UUID
+    role: str
+
+
+def require_scope(scope: str) -> Callable[..., Awaitable[WorkspaceContext]]:
+    """Build a dependency that resolves the caller's membership in the workspace
+    named by the path param ``tid`` and enforces ``scope`` against that role.
+
+    Loading the membership by (user, tenant) also proves the caller belongs to
+    the workspace — object-level authorization, so it doubles as IDOR defense.
+    Pass scope="" to require only membership.
+    """
+
+    async def dependency(
+        tid: uuid.UUID,
+        settings: SettingsDep,
+        token: Annotated[str, Depends(_oauth2_scheme)],
+    ) -> WorkspaceContext:
+        user_id = decode_access_token(settings.session_secret, token)
+        if user_id is None:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid or expired token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        factory = get_session_factory()
+        if factory is None:
+            raise HTTPException(status_code=503, detail="Database not configured")
+        async with factory() as session:
+            membership = await UserRepo().get_membership_in(session, user_id, tid)
+        if membership is None:
+            raise HTTPException(status_code=403, detail="Not a member of this workspace")
+        if scope and scope not in ROLE_SCOPES.get(membership.role, frozenset()):
+            raise HTTPException(
+                status_code=403,
+                detail=f"Scope required: {scope}",
+                headers={"WWW-Authenticate": f'Bearer scope="{scope}"'},
+            )
+        return WorkspaceContext(user_id=user_id, tenant_id=tid, role=membership.role)
+
+    return dependency
+
+
+WorkspaceMemberDep = Annotated[WorkspaceContext, Depends(require_scope(""))]
+ManageMembersDep = Annotated[WorkspaceContext, Depends(require_scope("workspace:manage"))]
+DeleteWorkspaceDep = Annotated[WorkspaceContext, Depends(require_scope("workspace:delete"))]
 
 
 @lru_cache(maxsize=1)

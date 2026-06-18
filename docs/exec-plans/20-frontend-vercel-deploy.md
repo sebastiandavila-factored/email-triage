@@ -104,7 +104,7 @@ que React Router resuelva en el cliente.
 | Dónde | Var | Valor |
 |---|---|---|
 | Vercel (build-time) | `VITE_API_URL` | `https://<app>.fastapicloud.dev` |
-| FastAPI Cloud | `CORS_ORIGINS` | `["https://<tu-app>.vercel.app"]` (array JSON) |
+| FastAPI Cloud | `CORS_ORIGINS` | `https://<tu-app>.vercel.app` (separado por comas si hay varios) |
 | FastAPI Cloud | `FRONTEND_URL` | `https://<tu-app>.vercel.app` |
 | FastAPI Cloud | `GOOGLE_REDIRECT_URI` | `https://<app>.fastapicloud.dev/auth/callback` |
 | FastAPI Cloud | `DATABASE_URL` | `postgresql+asyncpg://…neon…?sslmode=require` (endpoint **directo**) |

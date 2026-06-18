@@ -55,8 +55,15 @@ class Tenant(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
-    memberships: Mapped[list[Membership]] = relationship("Membership", back_populates="tenant")
-    triage_logs: Mapped[list[TriageLog]] = relationship("TriageLog", back_populates="tenant")
+    memberships: Mapped[list[Membership]] = relationship(
+        "Membership", back_populates="tenant", cascade="all, delete-orphan", passive_deletes=True
+    )
+    triage_logs: Mapped[list[TriageLog]] = relationship(
+        "TriageLog", back_populates="tenant", passive_deletes=True
+    )
+    invitations: Mapped[list[Invitation]] = relationship(
+        "Invitation", cascade="all, delete-orphan", passive_deletes=True
+    )
 
 
 class Membership(Base):
@@ -98,6 +105,25 @@ class TriageLog(Base):
     )
 
     tenant: Mapped[Tenant | None] = relationship("Tenant", back_populates="triage_logs")
+
+
+class Invitation(Base):
+    __tablename__ = "invitations"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[str] = mapped_column(String(50), nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    invited_by: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id"), nullable=False)
+    status: Mapped[str] = mapped_column(String(50), nullable=False, default="pending")
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class EvalRun(Base):

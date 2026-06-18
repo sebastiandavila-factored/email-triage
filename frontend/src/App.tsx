@@ -5,6 +5,9 @@ import { Login } from './pages/Login'
 import { Signup } from './pages/Signup'
 import { Dashboard } from './pages/Dashboard'
 import { Settings } from './pages/Settings'
+import { Workspace } from './pages/Workspace'
+import { NewWorkspace } from './pages/NewWorkspace'
+import { AcceptInvite } from './pages/AcceptInvite'
 
 export default function App() {
   return (
@@ -26,6 +29,30 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Settings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/workspace"
+            element={
+              <ProtectedRoute>
+                <Workspace />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/workspace/new"
+            element={
+              <ProtectedRoute>
+                <NewWorkspace />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/accept-invite"
+            element={
+              <ProtectedRoute>
+                <AcceptInvite />
               </ProtectedRoute>
             }
           />

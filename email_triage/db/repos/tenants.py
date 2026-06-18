@@ -29,6 +29,30 @@ class TenantRepo:
         _log.info("tenant.created", name=name, type="personal")
         return tenant
 
+    async def create_team(self, session: AsyncSession, name: str) -> Tenant:
+        tenant = Tenant(name=name, type="team", domain=None)
+        session.add(tenant)
+        await session.flush()
+        _log.info("tenant.created", name=name, type="team")
+        return tenant
+
+    async def list_for_user(
+        self, session: AsyncSession, user_id: uuid.UUID
+    ) -> list[tuple[Tenant, str]]:
+        rows = await session.execute(
+            select(Tenant, Membership.role)
+            .join(Membership, Membership.tenant_id == Tenant.id)
+            .where(Membership.user_id == user_id)
+            .order_by(Tenant.created_at)
+        )
+        return [(t, role) for t, role in rows.all()]
+
+    async def delete(self, session: AsyncSession, tenant_id: uuid.UUID) -> None:
+        tenant = await self.get_by_id(session, tenant_id)
+        if tenant is not None:
+            await session.delete(tenant)
+            await session.flush()
+
     async def add_member(
         self,
         session: AsyncSession,

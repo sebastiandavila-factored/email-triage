@@ -53,6 +53,37 @@ export interface RotateKeyResponse {
   message: string
 }
 
+export interface Workspace {
+  id: string
+  name: string
+  type: string
+  plan: string
+  role: string
+}
+
+export interface Member {
+  user_id: string
+  email: string
+  display_name: string
+  role: string
+}
+
+export interface Invitation {
+  id: string
+  email: string
+  role: string
+  status: string
+  expires_at: string
+}
+
+export interface CreateInviteResponse {
+  invitation_id: string
+  email: string
+  role: string
+  link: string
+  message: string
+}
+
 export class ApiError extends Error {
   status: number
   detail: string
@@ -79,6 +110,7 @@ async function request<T>(
     const body = await res.json().catch(() => ({ detail: res.statusText }))
     throw new ApiError(res.status, body.detail ?? res.statusText)
   }
+  if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
 }
 
@@ -119,5 +151,55 @@ export const api = {
 
   rotateKey(token: string): Promise<RotateKeyResponse> {
     return request('/auth/rotate-key', { method: 'POST' }, token)
+  },
+
+  // ── Workspaces ──────────────────────────────────────────────────────────────
+
+  listWorkspaces(token: string): Promise<Workspace[]> {
+    return request('/workspaces', {}, token)
+  },
+
+  createWorkspace(token: string, name: string): Promise<Workspace> {
+    return request('/workspaces', { method: 'POST', body: JSON.stringify({ name }) }, token)
+  },
+
+  deleteWorkspace(token: string, tid: string): Promise<void> {
+    return request(`/workspaces/${tid}`, { method: 'DELETE' }, token)
+  },
+
+  getMembers(token: string, tid: string): Promise<Member[]> {
+    return request(`/workspaces/${tid}/members`, {}, token)
+  },
+
+  changeRole(token: string, tid: string, uid: string, role: string): Promise<Member> {
+    return request(
+      `/workspaces/${tid}/members/${uid}`,
+      { method: 'PATCH', body: JSON.stringify({ role }) },
+      token,
+    )
+  },
+
+  removeMember(token: string, tid: string, uid: string): Promise<void> {
+    return request(`/workspaces/${tid}/members/${uid}`, { method: 'DELETE' }, token)
+  },
+
+  createInvite(token: string, tid: string, email: string, role: string): Promise<CreateInviteResponse> {
+    return request(
+      `/workspaces/${tid}/invitations`,
+      { method: 'POST', body: JSON.stringify({ email, role }) },
+      token,
+    )
+  },
+
+  listInvites(token: string, tid: string): Promise<Invitation[]> {
+    return request(`/workspaces/${tid}/invitations`, {}, token)
+  },
+
+  revokeInvite(token: string, tid: string, id: string): Promise<void> {
+    return request(`/workspaces/${tid}/invitations/${id}`, { method: 'DELETE' }, token)
+  },
+
+  acceptInvite(token: string, inviteToken: string): Promise<{ tenant_id: string; tenant_name: string; role: string }> {
+    return request('/invitations/accept', { method: 'POST', body: JSON.stringify({ token: inviteToken }) }, token)
   },
 }

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth, ApiError } from '../AuthContext'
 import { api } from '../api'
 import type { TriageResponse } from '../api'
+import { WorkspaceSwitcher } from '../components/WorkspaceSwitcher'
 
 const CATEGORY_COLORS: Record<string, string> = {
   status: 'bg-blue-100 text-blue-800',
@@ -47,7 +48,10 @@ export function Dashboard() {
       <nav className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
         <span className="font-semibold text-gray-900">Email Triage</span>
         <div className="flex items-center gap-4 text-sm">
-          <span className="text-gray-500">{user?.email}</span>
+          <WorkspaceSwitcher />
+          <Link to="/workspace" className="text-gray-600 hover:text-gray-900">
+            Workspace
+          </Link>
           <Link to="/settings" className="text-gray-600 hover:text-gray-900">
             Settings
           </Link>

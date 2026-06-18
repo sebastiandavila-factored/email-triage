@@ -12,7 +12,7 @@ from slowapi.errors import RateLimitExceeded
 from email_triage.db.engine import close_db, init_db
 from email_triage.deps import get_llm_service, get_settings, limiter
 from email_triage.middleware import RequestIdMiddleware
-from email_triage.routers import auth, health, triage
+from email_triage.routers import auth, health, triage, workspaces
 
 _settings = get_settings()
 
@@ -103,12 +103,12 @@ app.add_middleware(RequestIdMiddleware)
 # (prod: Vercel frontend → Render API). No allow_credentials: auth travels in
 # the Authorization/X-Api-Key headers, not cookies. Added last → outermost, so
 # preflight OPTIONS is answered before the rest of the stack runs.
-if _settings.cors_origins:
+if _settings.cors_origins_list:
     from fastapi.middleware.cors import CORSMiddleware
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=_settings.cors_origins,
+        allow_origins=_settings.cors_origins_list,
         allow_methods=["GET", "POST"],
         allow_headers=["authorization", "x-api-key", "content-type"],
     )
@@ -116,5 +116,7 @@ if _settings.cors_origins:
 app.include_router(health.router)
 app.include_router(triage.router)
 app.include_router(auth.router)
+app.include_router(workspaces.router)
+app.include_router(workspaces.invitations_router)
 
 logfire.instrument_fastapi(app)
