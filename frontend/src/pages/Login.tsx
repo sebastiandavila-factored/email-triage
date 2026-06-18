@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth, ApiError } from '../AuthContext'
 import { API_BASE } from '../api'
+import { nextAfterAuth } from '../invite'
 
 export function Login() {
   const { login, token } = useAuth()
@@ -11,8 +12,9 @@ export function Login() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // Already authenticated (e.g. just returned from Google SSO) → go straight in.
-  if (token) return <Navigate to="/dashboard" replace />
+  // Already authenticated (e.g. just returned from Google SSO) → go straight in,
+  // honouring a pending invite if there is one.
+  if (token) return <Navigate to={nextAfterAuth()} replace />
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -20,7 +22,7 @@ export function Login() {
     setLoading(true)
     try {
       await login(email, password)
-      navigate('/dashboard')
+      navigate(nextAfterAuth())
     } catch (err) {
       setError(err instanceof ApiError ? err.detail : 'Something went wrong')
     } finally {

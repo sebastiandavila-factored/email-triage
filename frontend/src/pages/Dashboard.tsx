@@ -49,6 +49,9 @@ export function Dashboard() {
         <span className="font-semibold text-gray-900">Email Triage</span>
         <div className="flex items-center gap-4 text-sm">
           <WorkspaceSwitcher />
+          <Link to="/compare" className="text-gray-600 hover:text-gray-900">
+            Compare
+          </Link>
           <Link to="/workspace" className="text-gray-600 hover:text-gray-900">
             Workspace
           </Link>

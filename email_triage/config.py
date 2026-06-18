@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _INSECURE_SESSION_SECRET = "change-me-in-production"
@@ -30,6 +30,13 @@ class Settings(BaseSettings):
     cors_origins: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    @field_validator("frontend_url")
+    @classmethod
+    def _strip_trailing_slash(cls, v: str) -> str:
+        # A trailing slash produces "host//accept-invite" / "host/#token=", and
+        # the SPA router won't match the doubled path. Normalise it away.
+        return v.rstrip("/")
 
     @property
     def cors_origins_list(self) -> list[str]:

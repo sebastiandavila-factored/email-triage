@@ -48,6 +48,13 @@ export interface TriageResponse {
   confidence: number
 }
 
+export interface TriageStreamCallbacks {
+  onMeta?: (category: string, confidence: number) => void
+  onDelta?: (text: string) => void
+  onDone?: () => void
+  onError?: (err: ApiError | Error) => void
+}
+
 export interface RotateKeyResponse {
   api_key: string
   message: string
@@ -151,6 +158,71 @@ export const api = {
 
   rotateKey(token: string): Promise<RotateKeyResponse> {
     return request('/auth/rotate-key', { method: 'POST' }, token)
+  },
+
+  // SSE streaming triage. EventSource can't do POST + custom headers, so we
+  // read the response body and parse the `event:`/`data:` frames by hand.
+  async triageStream(
+    token: string,
+    apiKey: string,
+    payload: { subject: string; sender: string; body: string },
+    cb: TriageStreamCallbacks,
+  ): Promise<void> {
+    let res: Response
+    try {
+      res = await fetch(`${API_BASE}/triage/stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          'X-Api-Key': apiKey,
+        },
+        body: JSON.stringify(payload),
+      })
+    } catch (err) {
+      cb.onError?.(err instanceof Error ? err : new Error('network error'))
+      return
+    }
+    if (!res.ok || !res.body) {
+      const body = await res.json().catch(() => ({ detail: res.statusText }))
+      cb.onError?.(new ApiError(res.status, body.detail ?? res.statusText))
+      return
+    }
+
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let buf = ''
+    try {
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buf += decoder.decode(value, { stream: true })
+        let sep: number
+        while ((sep = buf.indexOf('\n\n')) !== -1) {
+          const frame = buf.slice(0, sep)
+          buf = buf.slice(sep + 2)
+          let event = ''
+          let data = ''
+          for (const line of frame.split('\n')) {
+            if (line.startsWith('event:')) event = line.slice(6).trim()
+            else if (line.startsWith('data:')) data = line.slice(5).trim()
+          }
+          if (!data) continue
+          if (event === 'meta') {
+            const m = JSON.parse(data) as { category: string; confidence: number }
+            cb.onMeta?.(m.category, m.confidence)
+          } else if (event === 'done' || data === '[DONE]') {
+            cb.onDone?.()
+            return
+          } else {
+            cb.onDelta?.(JSON.parse(data) as string)
+          }
+        }
+      }
+      cb.onDone?.()
+    } catch (err) {
+      cb.onError?.(err instanceof Error ? err : new Error('stream error'))
+    }
   },
 
   // ── Workspaces ──────────────────────────────────────────────────────────────

@@ -2,13 +2,17 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth, ApiError } from '../AuthContext'
 import { api } from '../api'
+import { PENDING_INVITE_KEY } from '../invite'
 
+// Token comes from the link fragment on first visit; after a login/signup
+// round-trip it's read back from sessionStorage.
 function readInviteToken(): string | null {
-  return new URLSearchParams(window.location.hash.slice(1)).get('token')
+  const fromHash = new URLSearchParams(window.location.hash.slice(1)).get('token')
+  return fromHash ?? sessionStorage.getItem(PENDING_INVITE_KEY)
 }
 
 export function AcceptInvite() {
-  const { token, refreshWorkspaces, setActiveWorkspace } = useAuth()
+  const { token, isLoading, refreshWorkspaces, setActiveWorkspace } = useAuth()
   const navigate = useNavigate()
   const [inviteToken] = useState(readInviteToken)
   const [status, setStatus] = useState<'working' | 'done' | 'error'>(
@@ -20,13 +24,23 @@ export function AcceptInvite() {
   const ran = useRef(false)
 
   useEffect(() => {
-    if (ran.current || !token || !inviteToken) return
+    // Wait until auth state is resolved before deciding signed-in vs not.
+    if (ran.current || isLoading || !inviteToken) return
+
+    // Not signed in yet → stash the token and send them to log in / sign up.
+    if (!token) {
+      sessionStorage.setItem(PENDING_INVITE_KEY, inviteToken)
+      window.history.replaceState(null, '', window.location.pathname)
+      navigate('/login')
+      return
+    }
+
     ran.current = true
     window.history.replaceState(null, '', window.location.pathname)
-
     api
       .acceptInvite(token, inviteToken)
       .then(async (res) => {
+        sessionStorage.removeItem(PENDING_INVITE_KEY)
         await refreshWorkspaces()
         setActiveWorkspace(res.tenant_id)
         setStatus('done')
@@ -34,10 +48,11 @@ export function AcceptInvite() {
         setTimeout(() => navigate('/workspace'), 1200)
       })
       .catch((err) => {
+        sessionStorage.removeItem(PENDING_INVITE_KEY)
         setStatus('error')
         setMessage(err instanceof ApiError ? err.detail : 'Could not accept invitation')
       })
-  }, [token, inviteToken, refreshWorkspaces, setActiveWorkspace, navigate])
+  }, [token, isLoading, inviteToken, refreshWorkspaces, setActiveWorkspace, navigate])
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">

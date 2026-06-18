@@ -71,6 +71,18 @@ grep -E 'workspace\.(role_changed|member_removed|invite_accepted)' <logs>
 4. B: `GET /workspaces` incluye el team con rol `member`.
 5. B intenta `POST .../invitations` → 403. A puede.
 
+### E2E en la UI (Plan 22) — invitado SIN sesión previa
+
+1. A (owner) invita a B en `/workspace` → copia el link `…/accept-invite#token=…`.
+2. B abre el link **sin estar logueado** → `/accept-invite` guarda el token en
+   `sessionStorage` y redirige a `/login`.
+3. B hace **signup o login** con el email invitado (o "Continue with Google") →
+   al autenticarse vuelve a `/accept-invite`, que consume el token guardado.
+4. B aterriza en `/workspace` con el team como activo y rol `member`; no ve los
+   botones de gestión. A, al recargar, ve a B en *Members* y la invitación
+   desaparece de *Pending*.
+5. Si B usa un email distinto al invitado → la aceptación responde 403.
+
 ## Troubleshooting
 
 | Symptom | Cause | Solution |

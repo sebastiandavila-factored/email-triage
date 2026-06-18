@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './AuthContext'
+import { nextAfterAuth } from './invite'
 import { ProtectedRoute } from './ProtectedRoute'
 import { Login } from './pages/Login'
 import { Signup } from './pages/Signup'
@@ -8,6 +9,7 @@ import { Settings } from './pages/Settings'
 import { Workspace } from './pages/Workspace'
 import { NewWorkspace } from './pages/NewWorkspace'
 import { AcceptInvite } from './pages/AcceptInvite'
+import { Compare } from './pages/Compare'
 
 export default function App() {
   return (
@@ -49,14 +51,18 @@ export default function App() {
             }
           />
           <Route
-            path="/accept-invite"
+            path="/compare"
             element={
               <ProtectedRoute>
-                <AcceptInvite />
+                <Compare />
               </ProtectedRoute>
             }
           />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          {/* Not protected: handles the not-signed-in case itself (stash token → login). */}
+          <Route path="/accept-invite" element={<AcceptInvite />} />
+          {/* Catch-all: after Google SSO the app lands on "/" → route to the
+              pending invite if there is one, else the dashboard. */}
+          <Route path="*" element={<Navigate to={nextAfterAuth()} replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

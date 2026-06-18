@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth, ApiError } from '../AuthContext'
+import { nextAfterAuth } from '../invite'
 
 export function Signup() {
   const { signup } = useAuth()
@@ -54,10 +55,10 @@ export function Signup() {
           </button>
 
           <button
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate(nextAfterAuth())}
             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg py-2.5 text-sm transition"
           >
-            Go to Dashboard →
+            Continue →
           </button>
         </div>
       </div>
