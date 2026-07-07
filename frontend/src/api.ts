@@ -101,6 +101,21 @@ export class ApiError extends Error {
   }
 }
 
+// FastAPI returns `detail` as a plain string for HTTPException, but as an ARRAY
+// of {loc, msg, ...} objects for 422 validation errors (e.g. an invalid email).
+// Flatten to a readable string so callers can always render `error` as text
+// (an array/object thrown into JSX crashes React).
+function formatDetail(detail: unknown): string | undefined {
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) {
+    const msgs = detail.map((e) =>
+      e && typeof e === 'object' && 'msg' in e ? String((e as { msg: unknown }).msg) : String(e),
+    )
+    return msgs.join('; ') || undefined
+  }
+  return undefined
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {},
@@ -115,7 +130,7 @@ async function request<T>(
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers })
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }))
-    throw new ApiError(res.status, body.detail ?? res.statusText)
+    throw new ApiError(res.status, formatDetail(body.detail) ?? res.statusText)
   }
   if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
@@ -185,7 +200,7 @@ export const api = {
     }
     if (!res.ok || !res.body) {
       const body = await res.json().catch(() => ({ detail: res.statusText }))
-      cb.onError?.(new ApiError(res.status, body.detail ?? res.statusText))
+      cb.onError?.(new ApiError(res.status, formatDetail(body.detail) ?? res.statusText))
       return
     }
 
