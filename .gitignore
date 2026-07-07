@@ -34,3 +34,6 @@ Thumbs.db
 # Frontend
 frontend/node_modules/
 frontend/dist/
+
+# Eval judge calibration samples (run artifacts)
+evals/calibration/

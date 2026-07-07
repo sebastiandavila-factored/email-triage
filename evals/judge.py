@@ -1,11 +1,10 @@
 from __future__ import annotations
 
+from email_triage.services.groq import build_groq_model
 from pydantic_ai import Agent
-from pydantic_ai.models.groq import GroqModel
-from pydantic_ai.providers.groq import GroqProvider
 from pydantic_ai.settings import ModelSettings
 
-from evals.schemas import EvalCase, JudgeScore
+from evals.schemas import JudgeScore
 
 _JUDGE_SYSTEM_PROMPT = """\
 You are an expert evaluator of customer support email replies for an e-commerce store.
@@ -31,13 +30,19 @@ Score the draft reply on these five dimensions:
   1 = very poor (customer would be frustrated). 5 = excellent (customer would be satisfied).
 
 Be strict: reserve 5 for replies with no room for improvement.
-Do not penalize for generic replies that cannot know specific order details — that is expected.\
+Do not penalize for generic replies that cannot know specific order details — that is expected.
+
+ABSTAIN when you genuinely cannot assess the reply fairly (e.g. the email is unintelligible,
+or judging would require information you do not have). In that case set verdict="unknown",
+leave the five scores empty, and explain briefly in `reason`. Do NOT abstain just because a
+reply is generic or short — only when a fair score is truly impossible. When you can assess,
+set verdict="assessable" and fill in all five scores. Always provide a one-line `reason`.\
 """
 
 
 class JudgeAgent:
     def __init__(self, api_key: str, model: str = "llama-3.3-70b-versatile") -> None:
-        groq_model = GroqModel(model, provider=GroqProvider(api_key=api_key))
+        groq_model = build_groq_model(model, api_key)
         self._agent: Agent[None, JudgeScore] = Agent(
             groq_model,
             output_type=JudgeScore,
@@ -45,12 +50,9 @@ class JudgeAgent:
             model_settings=ModelSettings(temperature=0.1),
         )
 
-    async def evaluate(self, case: EvalCase, draft_reply: str) -> JudgeScore:
+    async def evaluate(self, subject: str, body: str, draft_reply: str) -> JudgeScore:
         user_msg = (
-            f"Customer email:\n"
-            f"Subject: {case.subject}\n"
-            f"Body: {case.body}\n\n"
-            f"Draft reply:\n{draft_reply}"
+            f"Customer email:\nSubject: {subject}\nBody: {body}\n\nDraft reply:\n{draft_reply}"
         )
         result = await self._agent.run(user_msg)
         return result.output

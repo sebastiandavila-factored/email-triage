@@ -25,15 +25,15 @@ const EXAMPLES: Example[] = [
   {
     key: 'simple',
     label: 'Simple',
-    hint: 'una pregunta · respuesta corta · rápido',
+    hint: 'one question · short reply · fast',
     subject: 'Where is my order #4821?',
     sender: 'customer@example.com',
     body: "Hi, I ordered three days ago and still have no tracking number. Can you tell me when it will ship and arrive? I'm getting worried. Thanks.",
   },
   {
     key: 'complex',
-    label: 'Complejo (respuesta larga)',
-    hint: '4 problemas distintos · categoría ambigua · respuesta larga',
+    label: 'Complex (long reply)',
+    hint: '4 distinct issues · ambiguous category · long reply',
     subject: 'Multiple problems with order #7732 — need help urgently',
     sender: 'frustrated.customer@example.com',
     body: `Hello, I'm really disappointed. I received order #7732 yesterday but there are several problems and I need clear answers on each:
@@ -192,16 +192,16 @@ export function Compare() {
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Sync vs. Streaming</h1>
           <p className="text-sm text-gray-500 mt-1">
-            La misma petición a la izquierda (<code>/triage</code>, esperas el resultado completo) y a
-            la derecha (<code>/triage/stream</code>, ves la categoría al instante y el borrador
-            tecleándose). Fíjate en el TTFT.
+            The same request on the left (<code>/triage</code> — you wait for the whole result) and on
+            the right (<code>/triage/stream</code> — the category shows instantly and the draft types
+            itself out). Watch the TTFT.
           </p>
         </div>
 
         {/* Shared input */}
         <form onSubmit={run} className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs text-gray-400">Cargar ejemplo:</span>
+            <span className="text-xs text-gray-400">Load example:</span>
             {EXAMPLES.map((ex) => (
               <button
                 key={ex.key}
@@ -253,14 +253,14 @@ export function Compare() {
         {/* Side by side */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* SYNC */}
-          <Panel title="Sync · /triage" subtitle="Bloqueante: nada hasta el final">
+          <Panel title="Sync · /triage" subtitle="Blocking: nothing until it's done">
             <Clock
               label="Total"
               ms={sync.status === 'done' ? sync.ms : sync.status === 'running' ? nowMs : undefined}
               running={sync.status === 'running'}
             />
             {sync.status === 'running' && (
-              <p className="text-sm text-gray-400 animate-pulse mt-3">Esperando respuesta completa…</p>
+              <p className="text-sm text-gray-400 animate-pulse mt-3">Waiting for the full response…</p>
             )}
             {sync.status === 'error' && <p className="text-sm text-red-600 mt-3">{sync.error}</p>}
             {sync.status === 'done' && sync.result && (
@@ -274,7 +274,7 @@ export function Compare() {
           </Panel>
 
           {/* STREAM */}
-          <Panel title="Streaming · /triage/stream" subtitle="Incremental: categoría + tokens en vivo">
+          <Panel title="Streaming · /triage/stream" subtitle="Incremental: category + tokens live">
             <div className="flex gap-4">
               <Clock
                 label="TTFT"
@@ -300,7 +300,7 @@ export function Compare() {
                 {stream.category ? (
                   <CategoryBadge category={stream.category} />
                 ) : (
-                  <span className="text-xs text-gray-400">esperando categoría…</span>
+                  <span className="text-xs text-gray-400">waiting for category…</span>
                 )}
                 <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap min-h-[3rem]">
                   {stream.draft}

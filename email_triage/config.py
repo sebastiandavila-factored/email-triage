@@ -10,8 +10,17 @@ class Settings(BaseSettings):
     groq_api_key: str
     groq_model: str = "llama-3.3-70b-versatile"
     api_key: str
+    # Logfire Prompt Management label to resolve the triage system prompt from.
+    # The in-code SYSTEM_PROMPT is the fallback if Logfire has no managed variable.
+    prompt_label: str = "production"
     logfire_sample_rate: float = 1.0
     logfire_environment: str = "dev"
+
+    # Online evals on live /triage. Off by default; opt-in per env. sample_rate keeps the
+    # critical path cheap (evaluators dispatch asynchronously after the run, non-blocking).
+    online_eval_enabled: bool = False
+    online_eval_sample_rate: float = 0.05
+    online_eval_max_concurrency: int = 2
     database_url: str | None = None  # postgresql+asyncpg://user:pass@host:5432/dbname
 
     # Google OAuth2 — required only when Google SSO is used

@@ -1,13 +1,14 @@
+from collections.abc import Sequence
 from contextlib import asynccontextmanager
 from typing import Final
 
 from pydantic_ai import Agent, PromptedOutput
-from pydantic_ai.models.groq import GroqModel
-from pydantic_ai.providers.groq import GroqProvider
+from pydantic_ai.capabilities.abstract import AbstractCapability
 from pydantic_ai.settings import ModelSettings
 
 from email_triage.observability import LLM_ERRORS_TOTAL, LLM_IN_FLIGHT
 from email_triage.schemas import StreamingTriageResponse, TriageRequest, TriageResponse
+from email_triage.services.groq import build_groq_model
 
 DEFAULT_MODEL: Final = "llama-3.3-70b-versatile"
 
@@ -31,13 +32,20 @@ class LLMError(RuntimeError):
 class LLMService:
     """Pydantic AI wrapper for Groq. Same public interface as the httpx version."""
 
-    def __init__(self, api_key: str, model: str = DEFAULT_MODEL) -> None:
-        groq_model = GroqModel(model, provider=GroqProvider(api_key=api_key))
+    def __init__(
+        self,
+        api_key: str,
+        model: str = DEFAULT_MODEL,
+        system_prompt: str = SYSTEM_PROMPT,
+        capabilities: Sequence[AbstractCapability[None]] | None = None,
+    ) -> None:
+        groq_model = build_groq_model(model, api_key)
         self._agent: Agent[None, TriageResponse] = Agent(
             groq_model,
             output_type=TriageResponse,
-            system_prompt=SYSTEM_PROMPT,
+            system_prompt=system_prompt,
             model_settings=ModelSettings(temperature=0.2),
+            capabilities=capabilities,
         )
 
     async def triage(self, req: TriageRequest) -> TriageResponse:

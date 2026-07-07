@@ -40,6 +40,33 @@ class EvalReport(TypedDict):
     calibration_bins: list[CalibrationBin]
     mean_judge_score: float | None
     judge_detail: JudgeDetail | None
+    judge_unknown_rate: float | None
+
+
+class PassHatKResult(TypedDict):
+    pass_hat_k: float  # fraction of cases correct on ALL k runs
+    repeat: int
+    flaky: list[str]  # case ids correct on some-but-not-all runs
+
+
+def compute_pass_hat_k(per_case_runs: dict[str, list[bool]], repeat: int) -> PassHatKResult:
+    """pass^k = fraction of cases whose every one of the k runs is correct (stricter than
+    accuracy). A case with fewer than ``repeat`` correct runs does not pass — a run that
+    errored (and is therefore absent from ``per_case_runs``) counts against it. Cases
+    correct on some-but-not-all runs are reported as flaky."""
+    total = len(per_case_runs)
+    if total == 0:
+        return PassHatKResult(pass_hat_k=0.0, repeat=repeat, flaky=[])
+
+    passed = 0
+    flaky: list[str] = []
+    for case_id, runs in per_case_runs.items():
+        n_correct = sum(runs)
+        if n_correct == repeat:
+            passed += 1
+        elif n_correct > 0:
+            flaky.append(case_id)
+    return PassHatKResult(pass_hat_k=passed / total, repeat=repeat, flaky=sorted(flaky))
 
 
 def compute_report(results: list[EvalResult]) -> EvalReport:
@@ -75,26 +102,38 @@ def compute_report(results: list[EvalResult]) -> EvalReport:
     mean_confidence = sum(r.confidence for r in valid) / total
     ece, calibration_bins = _compute_ece(valid, n_bins=10)
 
-    judge_results = [r for r in valid if r.judge_score is not None]
+    judge_present = [r for r in valid if r.judge_score is not None]
     mean_judge_score: float | None = None
     judge_detail: JudgeDetail | None = None
-    if judge_results:
-        n = len(judge_results)
-
-        def _js(attr: str) -> float:
-            return sum(getattr(r.judge_score, attr) for r in judge_results if r.judge_score) / n  # type: ignore[union-attr]
-
-        mean_judge_score = _js("overall")
-        judge_detail = JudgeDetail(
-            mean_overall=mean_judge_score,
-            mean_relevance=_js("relevance"),
-            mean_tone=_js("tone"),
-            mean_correctness=_js("correctness"),
-            language_match_pct=sum(
-                1 for r in judge_results if r.judge_score and r.judge_score.language_match
-            )
-            / n,
+    judge_unknown_rate: float | None = None
+    if judge_present:
+        n_present = len(judge_present)
+        n_unknown = sum(
+            1 for r in judge_present if r.judge_score and r.judge_score.verdict == "unknown"
         )
+        judge_unknown_rate = n_unknown / n_present
+
+        # Means are computed only over assessable cases — abstentions don't drag scores.
+        assessable = [
+            r for r in judge_present if r.judge_score and r.judge_score.verdict == "assessable"
+        ]
+        if assessable:
+            n = len(assessable)
+
+            def _js(attr: str) -> float:
+                return sum(getattr(r.judge_score, attr) for r in assessable if r.judge_score) / n  # type: ignore[union-attr]
+
+            mean_judge_score = _js("overall")
+            judge_detail = JudgeDetail(
+                mean_overall=mean_judge_score,
+                mean_relevance=_js("relevance"),
+                mean_tone=_js("tone"),
+                mean_correctness=_js("correctness"),
+                language_match_pct=sum(
+                    1 for r in assessable if r.judge_score and r.judge_score.language_match
+                )
+                / n,
+            )
 
     return EvalReport(
         accuracy=accuracy,
@@ -106,6 +145,7 @@ def compute_report(results: list[EvalResult]) -> EvalReport:
         calibration_bins=calibration_bins,
         mean_judge_score=mean_judge_score,
         judge_detail=judge_detail,
+        judge_unknown_rate=judge_unknown_rate,
     )
 
 

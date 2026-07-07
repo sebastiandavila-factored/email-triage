@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Annotated
 
+import logfire
 import structlog
 from fastapi import Depends, Header, HTTPException, Security
 from fastapi.security import OAuth2PasswordBearer, SecurityScopes
@@ -22,8 +23,10 @@ from email_triage.db.engine import get_session_factory
 from email_triage.db.models import User
 from email_triage.db.repos.tenants import TenantRepo
 from email_triage.db.repos.users import UserRepo
+from email_triage.evals_online import build_online_capability
 from email_triage.observability import AUTH_FAILURES_TOTAL
-from email_triage.services.llm import LLMService
+from email_triage.schemas import Category
+from email_triage.services.llm import SYSTEM_PROMPT, LLMService
 
 limiter = Limiter(key_func=get_remote_address)
 _log = structlog.get_logger()
@@ -258,7 +261,46 @@ ManageMembersDep = Annotated[WorkspaceContext, Depends(require_scope("workspace:
 DeleteWorkspaceDep = Annotated[WorkspaceContext, Depends(require_scope("workspace:delete"))]
 
 
+# ── Prompt management (Logfire) ───────────────────────────────────────────────
+
+PROMPT_VAR_NAME = "prompt__email_triage_system"
+
+# Registered exactly once at import: ``logfire.var(name=...)`` is a registration
+# call and raises if the same name is registered twice. The in-code SYSTEM_PROMPT
+# is the ``default=`` so an unresolved/unreachable Logfire yields it
+# (ResolvedVariable.reason == "code_default") and the critical path never breaks.
+_SYSTEM_PROMPT_VAR = logfire.var(name=PROMPT_VAR_NAME, default=SYSTEM_PROMPT)
+
+
+@lru_cache(maxsize=1)
+def get_system_prompt() -> str:
+    """Resolve the triage system prompt from Logfire Prompt Management, once per
+    process (``@lru_cache`` + eager warm-up in the lifespan → no per-request fetch)."""
+    settings = get_settings()
+    return _SYSTEM_PROMPT_VAR.get(label=settings.prompt_label).value
+
+
+def assert_category_coverage(prompt: str) -> None:
+    """Governance guard for the prompt ↔ ``Category`` contract.
+
+    The 5 categories are frozen in ``schemas.Category`` and code review is the gate
+    for changing them. A prompt edited in the Logfire UI bypasses that gate, so on
+    startup we verify the resolved prompt still mentions every category. On drift we
+    log a structured warning and keep serving — the in-code fallback remains valid, so
+    crashing would be worse than a loud warning.
+    """
+    missing = [c.value for c in Category if c.value not in prompt]
+    if missing:
+        _log.warning("prompt.category_drift", missing_categories=missing)
+
+
 @lru_cache(maxsize=1)
 def get_llm_service() -> LLMService:
     s = get_settings()
-    return LLMService(api_key=s.groq_api_key, model=s.groq_model)
+    capability = build_online_capability(s)
+    return LLMService(
+        api_key=s.groq_api_key,
+        model=s.groq_model,
+        system_prompt=get_system_prompt(),
+        capabilities=[capability] if capability is not None else None,
+    )

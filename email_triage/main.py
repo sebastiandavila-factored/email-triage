@@ -10,7 +10,13 @@ from slowapi import _rate_limit_exceeded_handler  # type: ignore[reportPrivateIm
 from slowapi.errors import RateLimitExceeded
 
 from email_triage.db.engine import close_db, init_db
-from email_triage.deps import get_llm_service, get_settings, limiter
+from email_triage.deps import (
+    assert_category_coverage,
+    get_llm_service,
+    get_settings,
+    get_system_prompt,
+    limiter,
+)
 from email_triage.middleware import RequestIdMiddleware
 from email_triage.routers import auth, health, triage, workspaces
 
@@ -66,11 +72,15 @@ _log = structlog.get_logger()
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     settings = get_settings()
+    # Resolve the managed prompt once (warms the cache the LLMService reads) and
+    # check it still covers all categories before any request is served.
+    prompt = get_system_prompt()
+    assert_category_coverage(prompt)
     llm = get_llm_service()
     if settings.database_url:
         init_db(settings.database_url)
         _log.info("db.connected")
-    _log.info("startup", groq_model=settings.groq_model)
+    _log.info("startup", groq_model=settings.groq_model, prompt_chars=len(prompt))
     yield
     await llm.aclose()
     await close_db()

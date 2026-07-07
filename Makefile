@@ -47,6 +47,18 @@ eval-quick: ## Run eval — classification metrics only, no LLM judge (2x faster
 	@export $$(grep -v '^#' .env | xargs) 2>/dev/null; \
 	uv run python -m evals.run_evals --no-judge
 
+eval-regression: ## Run the regression suite as a gate (exits non-zero below threshold)
+	@export $$(grep -v '^#' .env | xargs) 2>/dev/null; \
+	uv run python -m evals.run_evals --suite regression --check
+
+eval-capability: ## Run the capability suite (harder/ambiguous cases; trend-tracked)
+	@export $$(grep -v '^#' .env | xargs) 2>/dev/null; \
+	uv run python -m evals.run_evals --suite capability
+
+eval-passk: ## Run each case K times and report pass^k. Usage: make eval-passk K=5
+	@export $$(grep -v '^#' .env | xargs) 2>/dev/null; \
+	uv run python -m evals.run_evals --no-judge --repeat $(or $(K),5)
+
 db-up: ## Start local PostgreSQL via Docker Compose
 	docker compose up -d db
 

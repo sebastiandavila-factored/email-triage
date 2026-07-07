@@ -17,6 +17,7 @@ Technical documents that translate a product intent into concrete code changes. 
 | 20 | [Frontend Deploy — Vercel + FastAPI Cloud + Neon](20-frontend-vercel-deploy.md) | 📋 | Static SPA on Vercel calling the FastAPI Cloud API (DB on Neon) cross-origin; `VITE_API_URL` base, absolute Google-SSO link, `vercel.json` SPA rewrites, CORS + redirect-URI wiring. Runbook: [docs/DEPLOY.md](../DEPLOY.md) |
 | 21 | [Team Workspaces + RBAC backend](21-team-workspaces-rbac.md) | ✅ | `WorkspaceService` + per-workspace scope enforcement (`require_scope`), team creation, member/role management, invitations by hashed token, workspace delete; wires every scope and closes finding C6 |
 | 22 | [Workspace Management UI](22-workspace-management-ui.md) | 🚧 | React: workspace switcher, members/roles page, invite create/accept/revoke, create team, role-based UI gating; consumes Plan 21 |
+| 23 | [Observability + Evals — State of the Art](23-observability-evals-sota.md) | ✅ | 7-phase roadmap: prompt versioning (Logfire), migrate evals to `pydantic-evals`, capability vs regression, multi-run + pass^k, judge "Unknown", online evals, balanced dataset. All 7 phases delivered |
 
 Statuses: 📋 proposed · 🚧 in progress · ✅ delivered · ❌ discarded
 
