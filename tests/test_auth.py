@@ -265,7 +265,9 @@ def test_callback_creates_user_and_workspace_on_first_login(
         ),
         patch("email_triage.routers.auth.UserRepo") as mock_user_repo_cls,
         patch("email_triage.routers.auth.TenantRepo") as mock_tenant_repo_cls,
+        patch("email_triage.routers.auth.TriageConfigService") as mock_cfg_cls,
     ):
+        mock_cfg_cls.return_value = AsyncMock()  # seed_defaults is a no-op here
         mock_client = AsyncMock()
         mock_client.post.return_value = mock_token_resp
         mock_client.get.return_value = mock_jwks_resp
@@ -525,7 +527,9 @@ def test_signup_creates_user_and_personal_tenant(auth_client: TestClient) -> Non
         ),
         patch("email_triage.routers.auth.UserRepo") as mock_user_repo_cls,
         patch("email_triage.routers.auth.TenantRepo") as mock_tenant_repo_cls,
+        patch("email_triage.routers.auth.TriageConfigService") as mock_cfg_cls,
     ):
+        mock_cfg_cls.return_value = AsyncMock()  # seed_defaults is a no-op here
         mock_user_repo = AsyncMock()
         mock_user_repo.get_by_email.return_value = None  # no duplicate
         mock_user_repo.create_with_password.return_value = fake_user

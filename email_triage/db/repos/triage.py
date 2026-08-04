@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from email_triage.db.engine import get_session_factory
 from email_triage.db.models import TriageLog
-from email_triage.schemas import TriageRequest, TriageResponse
+from email_triage.schemas import AnyTriageResponse, TriageRequest
 
 _log = structlog.get_logger()
 
@@ -17,7 +17,7 @@ class TriageLogRepo:
         self,
         session: AsyncSession,
         req: TriageRequest,
-        result: TriageResponse,
+        result: AnyTriageResponse,
         request_id: str,
         latency_ms: float,
         endpoint: str,
@@ -30,7 +30,7 @@ class TriageLogRepo:
                 tenant_id=tenant_id,
                 subject_chars=len(req.subject),
                 body_chars=len(req.body),
-                category=result.category.value,
+                category=str(result.category),
                 confidence=result.confidence,
                 draft_chars=len(result.draft_reply),
                 latency_ms=latency_ms,
@@ -42,7 +42,7 @@ class TriageLogRepo:
 
 async def persist_triage_log(
     req: TriageRequest,
-    result: TriageResponse,
+    result: AnyTriageResponse,
     request_id: str,
     latency_ms: float,
     endpoint: str,

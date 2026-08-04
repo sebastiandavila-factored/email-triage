@@ -25,6 +25,20 @@ uv run uvicorn email_triage.main:app --reload
 
 Interactive docs at `http://localhost:8000/docs`.
 
+## MCP server
+
+Triage Studio is also exposed as an MCP server (`triage-studio`) with typed tools
+(`classify_email`, `list_categories`, `create_category`, `add_example`, `preview_prompt`,
+`list_prompt_versions`) so any Claude client can drive it. See
+[docs/features/27-triage-studio-mcp-workflows.md](docs/features/27-triage-studio-mcp-workflows.md).
+
+```bash
+uv sync --extra mcp
+export TRIAGE_API_URL=http://localhost:8000 TRIAGE_API_KEY=<key>
+export TRIAGE_SESSION_TOKEN=<jwt> TRIAGE_WORKSPACE_ID=<tid>
+uv run triage-mcp   # stdio
+```
+
 ## Documentation
 
 - [CLAUDE.md](CLAUDE.md) — technical conventions for AI agents

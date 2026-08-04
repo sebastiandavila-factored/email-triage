@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import time
 import uuid
+from collections import OrderedDict
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from functools import lru_cache
@@ -21,12 +23,18 @@ from email_triage.auth.session import decode_access_token
 from email_triage.config import Settings
 from email_triage.db.engine import get_session_factory
 from email_triage.db.models import User
+from email_triage.db.repos.prompts import PromptVersionRepo
 from email_triage.db.repos.tenants import TenantRepo
 from email_triage.db.repos.users import UserRepo
 from email_triage.evals_online import build_online_capability
 from email_triage.observability import AUTH_FAILURES_TOTAL
-from email_triage.schemas import Category
+from email_triage.schemas import (
+    Category,
+    DynamicStreamingTriageResponse,
+    DynamicTriageResponse,
+)
 from email_triage.services.llm import SYSTEM_PROMPT, LLMService
+from email_triage.services.prompt_studio import PromptStudioError, PromptStudioService
 
 limiter = Limiter(key_func=get_remote_address)
 _log = structlog.get_logger()
@@ -259,6 +267,8 @@ def require_scope(scope: str) -> Callable[..., Awaitable[WorkspaceContext]]:
 WorkspaceMemberDep = Annotated[WorkspaceContext, Depends(require_scope(""))]
 ManageMembersDep = Annotated[WorkspaceContext, Depends(require_scope("workspace:manage"))]
 DeleteWorkspaceDep = Annotated[WorkspaceContext, Depends(require_scope("workspace:delete"))]
+ConfigureTriageDep = Annotated[WorkspaceContext, Depends(require_scope("triage:configure"))]
+PublishPromptDep = Annotated[WorkspaceContext, Depends(require_scope("prompt:publish"))]
 
 
 # ── Prompt management (Logfire) ───────────────────────────────────────────────
@@ -296,6 +306,8 @@ def assert_category_coverage(prompt: str) -> None:
 
 @lru_cache(maxsize=1)
 def get_llm_service() -> LLMService:
+    """Legacy service: static SYSTEM_PROMPT + frozen ``Category`` enum. Used on the
+    no-DB path and as the safe fallback when the dynamic path can't resolve."""
     s = get_settings()
     capability = build_online_capability(s)
     return LLMService(
@@ -303,4 +315,84 @@ def get_llm_service() -> LLMService:
         model=s.groq_model,
         system_prompt=get_system_prompt(),
         capabilities=[capability] if capability is not None else None,
+    )
+
+
+# ── Dynamic per-tenant triage service (Triage Studio F2/F3) ───────────────────
+
+# One LLMService (Agent) per (tenant, version). For a published tenant the version
+# is "v{n}"; otherwise it is a hash of the live-compiled draft prompt, so any edit
+# (category, example, template) yields a new key and the stale entry ages out of
+# this bounded LRU — invalidation for free.
+_svc_cache: OrderedDict[tuple[uuid.UUID, str], LLMService] = OrderedDict()
+_SVC_CACHE_MAX = 256
+
+
+def clear_triage_service_cache() -> None:
+    """Drop all cached per-tenant services. Per-process (like the api-key cache);
+    a shared store would make it fleet-wide. Called after publish/rollback and in tests."""
+    _svc_cache.clear()
+
+
+def _build_service(system_prompt: str, allowed_slugs: frozenset[str]) -> LLMService:
+    s = get_settings()
+    capability = build_online_capability(s)
+    return LLMService(
+        api_key=s.groq_api_key,
+        model=s.groq_model,
+        system_prompt=system_prompt,
+        capabilities=[capability] if capability is not None else None,
+        output_type=DynamicTriageResponse,
+        streaming_output_type=DynamicStreamingTriageResponse,
+        allowed_slugs=allowed_slugs,
+    )
+
+
+def _cached_or_build(key: tuple[uuid.UUID, str], build: Callable[[], LLMService]) -> LLMService:
+    cached = _svc_cache.get(key)
+    if cached is not None:
+        _svc_cache.move_to_end(key)
+        return cached
+    service = build()
+    _svc_cache[key] = service
+    if len(_svc_cache) > _SVC_CACHE_MAX:
+        _svc_cache.popitem(last=False)
+    return service
+
+
+async def get_triage_service(tenant: TenantDep) -> LLMService:
+    """Resolve the triage service for the calling workspace.
+
+    "Published wins if present": a tenant with an active PromptVersion is served that
+    frozen prompt; otherwise the draft is live-compiled (F2 + F3 examples/overrides).
+    Falls back to the legacy service on no tenant / no DB / no active categories — the
+    critical path must never 500 on prompt configuration.
+    """
+    tenant_id = tenant.tenant_id
+    if tenant_id is None:
+        return get_llm_service()
+    factory = get_session_factory()
+    if factory is None:
+        return get_llm_service()
+    try:
+        async with factory() as session:
+            active = await PromptVersionRepo().active(session, tenant_id)
+            if active is not None:
+                slugs = frozenset(json.loads(active.allowed_slugs))
+                prompt = active.compiled_prompt
+                return _cached_or_build(
+                    (tenant_id, f"v{active.version}"),
+                    lambda: _build_service(prompt, slugs),
+                )
+            draft = await PromptStudioService().compile_draft(session, tenant_id)
+    except PromptStudioError:
+        _log.warning("prompt.fallback", reason="no_active_categories")
+        return get_llm_service()
+    except Exception:
+        _log.warning("prompt.fallback", reason="taxonomy_query_failed")
+        return get_llm_service()
+
+    token = hashlib.sha1(draft.prompt.encode()).hexdigest()  # noqa: S324 — cache key, not security
+    return _cached_or_build(
+        (tenant_id, token), lambda: _build_service(draft.prompt, draft.allowed_slugs)
     )

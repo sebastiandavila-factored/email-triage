@@ -105,7 +105,7 @@ Some are not yet implemented but are already contractual. Respect them when addi
 
 - **DO NOT commit**: the human makes commits. Never run `git commit`, `git push`, `git amend`.
 - **DO NOT call Groq from tests**: use dependency override.
-- **DO NOT invent categories**: the five are `status`, `refunds`, `availability`, `shipments`, `prices` (defined in `email_triage/schemas.py:Category`). Changing them requires updating this file + `schemas.py` + the `SYSTEM_PROMPT` in `services/llm.py` + `docs/features/`.
+- **Categories — two paths (Triage Studio):** the frozen five (`status`, `refunds`, `availability`, `shipments`, `prices` in `email_triage/schemas.py:Category`) are now only the **legacy/fallback + offline-evals** taxonomy. Changing *those* still requires this file + `schemas.py` + `SYSTEM_PROMPT` in `services/llm.py` + `docs/features/`. On the live path, categories are **per-workspace rows** in the `categories` table (F1, Plan 24), compiled into an XML prompt with a dynamic `str` output (F2, Plan 25). Do NOT re-freeze categories or route `/triage` back through the enum — see [proposal 001](docs/proposals/001-triage-studio.md).
 - **DO NOT use `--no-verify`**: if pre-commit fails, fix the code.
 - **DO NOT add features outside the scope** of the active exec plan without discussing with the human first.
 - **DO NOT hallucinate values**: if a secret or environment variable is not available, warn and stop.

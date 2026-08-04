@@ -12,6 +12,7 @@ from sqlalchemy import (
     SmallInteger,
     String,
     Text,
+    UniqueConstraint,
     Uuid,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -63,6 +64,9 @@ class Tenant(Base):
     )
     invitations: Mapped[list[Invitation]] = relationship(
         "Invitation", cascade="all, delete-orphan", passive_deletes=True
+    )
+    categories: Mapped[list[Category]] = relationship(
+        "Category", cascade="all, delete-orphan", passive_deletes=True
     )
 
 
@@ -124,6 +128,112 @@ class Invitation(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class Category(Base):
+    """A triage category owned by a workspace (Triage Studio F1).
+
+    Replaces the frozen ``schemas.Category`` StrEnum as the source of truth for
+    *which* categories exist per tenant. ``slug`` is the stable classification
+    value (immutable once created); ``name``/``description`` are display/prompt
+    copy. The reserved slug ``unknown`` is never stored — it is the implicit
+    escape category the prompt compiler adds in F2.
+    """
+
+    __tablename__ = "categories"
+    __table_args__ = (UniqueConstraint("tenant_id", "slug", name="uq_categories_tenant_slug"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    slug: Mapped[str] = mapped_column(String(50), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    examples: Mapped[list[TriageExample]] = relationship(
+        "TriageExample", cascade="all, delete-orphan", passive_deletes=True
+    )
+
+
+class TriageExample(Base):
+    """A few-shot example attached to a category (Triage Studio F3). Injected into
+    the ``<examples>`` block of the compiled prompt."""
+
+    __tablename__ = "triage_examples"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    category_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("categories.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    kind: Mapped[str] = mapped_column(String(10), nullable=False, default="positive")
+    subject: Mapped[str] = mapped_column(String(500), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    expected_reply: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class PromptTemplate(Base):
+    """Per-tenant mutable draft of the prompt block overrides (Triage Studio F3).
+    A NULL block means "use the compiler default", so defaults keep evolving with
+    the code instead of being copied per tenant."""
+
+    __tablename__ = "prompt_templates"
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tenants.id", ondelete="CASCADE"), primary_key=True
+    )
+    role_block: Mapped[str | None] = mapped_column(Text, nullable=True)
+    task_block: Mapped[str | None] = mapped_column(Text, nullable=True)
+    guardrails_block: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tone: Mapped[str | None] = mapped_column(Text, nullable=True)
+    updated_by: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id"), nullable=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class PromptVersion(Base):
+    """Immutable snapshot of a published prompt (Triage Studio F3). Exactly one row
+    per tenant has ``is_active=True``; ``/triage`` serves that one when present."""
+
+    __tablename__ = "prompt_versions"
+    __table_args__ = (UniqueConstraint("tenant_id", "version", name="uq_prompt_versions_tenant_v"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    compiled_prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    allowed_slugs: Mapped[str] = mapped_column(Text, nullable=False)  # JSON array of slugs
+    accuracy: Mapped[float | None] = mapped_column(Float, nullable=True)
+    macro_f1: Mapped[float | None] = mapped_column(Float, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    published_by: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id"), nullable=True
+    )
+    published_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
 
 class EvalRun(Base):

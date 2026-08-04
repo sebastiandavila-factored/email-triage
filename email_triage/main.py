@@ -18,7 +18,7 @@ from email_triage.deps import (
     limiter,
 )
 from email_triage.middleware import RequestIdMiddleware
-from email_triage.routers import auth, health, triage, workspaces
+from email_triage.routers import auth, categories, health, prompt_studio, triage, workspaces
 
 _settings = get_settings()
 
@@ -128,5 +128,7 @@ app.include_router(triage.router)
 app.include_router(auth.router)
 app.include_router(workspaces.router)
 app.include_router(workspaces.invitations_router)
+app.include_router(categories.router)
+app.include_router(prompt_studio.router)
 
 logfire.instrument_fastapi(app)

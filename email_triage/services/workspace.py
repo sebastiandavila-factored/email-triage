@@ -22,6 +22,7 @@ from email_triage.db.models import Membership, Tenant
 from email_triage.db.repos.invitations import InvitationRepo
 from email_triage.db.repos.tenants import TenantRepo
 from email_triage.db.repos.users import UserRepo
+from email_triage.services.triage_config import TriageConfigService
 
 _log = structlog.get_logger()
 
@@ -57,6 +58,7 @@ class WorkspaceService:
     async def create_team(self, session: AsyncSession, owner_id: uuid.UUID, name: str) -> Tenant:
         tenant = await self.tenants.create_team(session, name)
         await self.tenants.add_member(session, owner_id, tenant.id, "owner")
+        await TriageConfigService().seed_defaults(session, tenant.id)
         return tenant
 
     async def list_for_user(

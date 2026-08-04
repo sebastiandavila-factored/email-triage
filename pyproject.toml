@@ -26,9 +26,18 @@ dependencies = [
     "uvicorn>=0.48.0",
 ]
 
+[project.optional-dependencies]
+mcp = [
+    "mcp>=2.0",
+]
+
+[project.scripts]
+triage-mcp = "email_triage.mcp_server:main"
+
 [dependency-groups]
 dev = [
     "aiosqlite>=0.20",
+    "mcp>=2.0",  # for the MCP server (F4) — tests + typecheck
     "pre-commit>=4.6.0",
     "pyright[nodejs]>=1.1.409",
     "pytest>=9.0.3",

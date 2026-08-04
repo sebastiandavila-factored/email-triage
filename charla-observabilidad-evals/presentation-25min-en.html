@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Observability &amp; Evals with Pydantic AI + Logfire</title>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/reveal.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/theme/black.min.css" id="theme">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+
+  <style>
+    :root{
+      --accent:#e94f37;       /* Pydantic/Logfire-ish red-orange */
+      --accent2:#56b6c2;      /* teal */
+      --ink:#e6e6e6;
+      --muted:#9aa0a6;
+      --panel:#1b1d22;
+      --panel2:#23262c;
+    }
+    .reveal { font-family: "Inter","Helvetica Neue",Arial,sans-serif; color:var(--ink); }
+    .reveal h1,.reveal h2,.reveal h3,.reveal h4 { font-weight:700; letter-spacing:-.01em; text-transform:none; }
+    .reveal h1 { font-size:2.15em; line-height:1.05; }
+    .reveal h2 { font-size:1.55em; color:#fff; }
+    .reveal h3 { font-size:1.15em; color:var(--accent2); }
+    .reveal section { text-align:left; }
+    .reveal .center { text-align:center; }
+    .reveal .accent { color:var(--accent); }
+    .reveal .teal { color:var(--accent2); }
+    .reveal .muted { color:var(--muted); }
+    .reveal .small { font-size:.72em; }
+    .reveal .xsmall { font-size:.6em; }
+    .reveal em { color:var(--accent2); font-style:normal; }
+    .reveal strong { color:#fff; }
+    .reveal pre { width:100%; box-shadow:none; font-size:.52em; }
+    .reveal pre code { padding:18px 20px; border-radius:10px; max-height:560px; background:#0f1115; }
+    .reveal code:not(pre code){ color:var(--accent2); background:rgba(86,182,194,.1); padding:1px 6px; border-radius:5px; font-size:.9em; }
+    .reveal table { font-size:.62em; }
+    .reveal table th { color:var(--accent); border-bottom:2px solid var(--accent); }
+    .reveal table td { border-bottom:1px solid #333; }
+    .kicker { display:inline-block; font-size:.5em; letter-spacing:.22em; text-transform:uppercase;
+              color:var(--accent); border:1px solid var(--accent); padding:5px 12px; border-radius:30px; margin-bottom:18px; }
+    .pill { display:inline-block; font-size:.85em; background:var(--panel2); border:1px solid #333;
+            padding:4px 12px; border-radius:20px; margin:3px; }
+    .cols { display:flex; gap:34px; align-items:flex-start; }
+    .col { flex:1; }
+    .card { background:var(--panel); border:1px solid #2c2f36; border-left:4px solid var(--accent);
+            border-radius:10px; padding:16px 20px; margin:10px 0; }
+    .card.teal { border-left-color:var(--accent2); }
+    .card h4 { margin:0 0 6px 0; color:#fff; font-size:.92em; }
+    .card p { margin:0; font-size:.78em; color:var(--muted); }
+    .big-num { font-size:1.5em; color:var(--accent); font-weight:800; margin-right:8px; }
+    .reveal ul { font-size:.86em; }
+    .reveal ol { font-size:.86em; }
+    .reveal .footer { position:fixed; bottom:12px; left:18px; font-size:13px; color:#5a5f66; z-index:30; }
+    .reveal .progress { color:var(--accent); }
+    .note-box { background:rgba(233,79,55,.08); border:1px solid rgba(233,79,55,.35);
+                border-radius:10px; padding:12px 18px; font-size:.78em; }
+    .tag-cap { color:#fff; background:var(--accent); border-radius:5px; padding:1px 8px; font-size:.8em;}
+    .tag-reg { color:#fff; background:var(--accent2); border-radius:5px; padding:1px 8px; font-size:.8em;}
+    .filepath { font-family:monospace; font-size:.8em; color:var(--accent2); }
+  </style>
+</head>
+<body>
+<div class="reveal">
+  <div class="footer">Observability &amp; Evals · Pydantic AI + Logfire · email-triage</div>
+  <div class="slides">
+
+  <!-- ===================== 0. TITLE ===================== -->
+  <section data-background-gradient="linear-gradient(135deg,#15171c 0%,#23120f 100%)">
+    <span class="kicker">Tech talk</span>
+    <h1>Observability &amp; <span class="accent">Evals</span><br>with Pydantic AI + Logfire</h1>
+    <p class="muted" style="margin-top:22px">From OTEL spans and metrics to <em>prompt versioning</em> and <em>evals best practices</em>,<br>using a real case: <code>email-triage</code>.</p>
+    <aside class="notes">Intro. The goal is to show how we took an LLM agent that already had observability and pushed it to a level where we version prompts and measure quality with evals. Everything grounded in email-triage — and it's already shipped, not a wishlist.</aside>
+  </section>
+
+  <!-- ===================== AGENDA ===================== -->
+  <section>
+    <h2>What you'll take away</h2>
+    <div class="cols">
+      <div class="col">
+        <div class="card"><h4>1 · OTEL observability</h4><p>OpenTelemetry and Logfire fundamentals, and what we have instrumented.</p></div>
+        <div class="card teal"><h4>2 · Evals fundamentals</h4><p>Vocabulary, graders and best practices from the Anthropic article.</p></div>
+      </div>
+      <div class="col">
+        <div class="card"><h4>3 · Prompt versioning</h4><p>Getting <code>SYSTEM_PROMPT</code> out of the code with Logfire Prompt Management.</p></div>
+        <div class="card teal"><h4>4 · Evals with Pydantic Evals</h4><p>Dataset, evaluators, LLM judge, span-based and online evals.</p></div>
+      </div>
+    </div>
+    <aside class="notes">Structure: two blocks of theory/observability, two blocks of the new stuff — versioning and evals. Close with results and the key lesson.</aside>
+  </section>
+
+  <!-- ===================== THE PROJECT ===================== -->
+  <section>
+    <section>
+      <span class="kicker">The real case</span>
+      <h2><code>email-triage</code></h2>
+      <p class="muted">An agent that classifies e-commerce support emails and drafts a reply.</p>
+      <div class="cols" style="margin-top:10px">
+        <div class="col">
+          <h3>Stack</h3>
+          <span class="pill">FastAPI</span><span class="pill">Pydantic AI</span><span class="pill">Groq</span>
+          <span class="pill">Logfire (OTEL)</span><span class="pill">structlog</span><span class="pill">uv</span>
+        </div>
+        <div class="col">
+          <h3>5 categories</h3>
+          <span class="pill teal">status</span><span class="pill">refunds</span><span class="pill">availability</span>
+          <span class="pill">shipments</span><span class="pill">prices</span>
+        </div>
+      </div>
+      <div class="note-box" style="margin-top:18px">
+        Critical path: <code>POST /triage</code> → Groq → Pydantic-validated response. 1–3 s per request, async by default.
+      </div>
+      <aside class="notes">Context for the running example. Simple but realistic conversational agent: classify + reply. It has a latency-bound critical path, which matters later when we get to online evals.</aside>
+    </section>
+    <section>
+      <h2>The output is a Pydantic contract</h2>
+      <pre><code class="language-python" data-trim data-line-numbers>SYSTEM_PROMPT = """You are an email triage system for an e-commerce support inbox.
+
+Classify the user's email into EXACTLY ONE category:
+- status / refunds / availability / shipments / prices
+Write a polite, brief reply in the same language as the email.
+Estimate your confidence between 0 and 1."""
+
+class LLMService:                                       # starting point (before)
+    def __init__(self, api_key: str, model: str = DEFAULT_MODEL) -> None:
+        groq_model = GroqModel(model, provider=GroqProvider(api_key=api_key))
+        self._agent: Agent[None, TriageResponse] = Agent(
+            groq_model,
+            output_type=TriageResponse,        # Pydantic = single source of truth
+            system_prompt=SYSTEM_PROMPT,        # 👈 hardcoded (now versioned, Part 3)
+            model_settings=ModelSettings(temperature=0.2),
+        )</code></pre>
+      <p class="small muted">Two things to note: <code>output_type</code> is a Pydantic model (validation for free), and the <span class="accent">prompt lived in the code</span>. Today <code>__init__</code> also takes <code>system_prompt=</code> (from Logfire) and <code>capabilities=</code> (online evals).</p>
+      <aside class="notes">The heart of the agent. Two threads that come back: the Pydantic-validated output, and the hardcoded system prompt — that's exactly the problem prompt versioning solves.</aside>
+    </section>
+  </section>
+
+  <!-- ===================== PART 1: OBSERVABILITY ===================== -->
+  <section data-background-color="#1a1410">
+    <span class="kicker accent">Part 1</span>
+    <h1>OTEL observability<br>with Logfire</h1>
+    <aside class="notes">Start with the familiar to set the OTEL vocabulary, which we reuse in evals.</aside>
+  </section>
+
+  <section>
+    <section>
+      <h2>What is <span class="teal">OpenTelemetry</span>?</h2>
+      <p class="muted">An open, <strong>vendor-neutral</strong> standard (CNCF) for producing telemetry: traces, metrics and logs.</p>
+      <div class="cols" style="margin-top:8px">
+        <div class="col"><div class="card"><h4>Decouples instrumenting from storing</h4><p>Instrument <strong>once</strong> with the API/SDK; export to <em>any</em> backend (Logfire, Jaeger, Grafana, Datadog…).</p></div></div>
+        <div class="col"><div class="card teal"><h4>Semantic conventions</h4><p>Standard attribute names (<code>http.method</code>, <code>gen_ai.*</code>) → different tools understand the same thing.</p></div></div>
+      </div>
+      <pre style="margin-top:10px"><code class="language-text" data-trim>your code → OTEL SDK → [optional Collector] → backend (Logfire)</code></pre>
+      <p class="small muted">The key idea: <span class="accent">you're not married to a vendor</span>. Swap the backend and your instrumentation stays the same.</p>
+      <aside class="notes">Conceptual anchor. OTEL is to observability what SQL is to databases: a standard. The point for the team: we instrument against OTEL, not against Logfire. Logfire is swappable. Semantic conventions matter: gen_ai.* is the convention for LLMs, which is why online-eval events (gen_ai.evaluation.result) are standard.</aside>
+    </section>
+    <section>
+      <h2>What is <span class="accent">Logfire</span>?</h2>
+      <p class="muted"><strong>Pydantic's</strong> observability backend — <span class="teal">OTEL-native</span>, not proprietary.</p>
+      <div class="cols" style="margin-top:6px">
+        <div class="col"><div class="card"><h4>Ergonomic SDK over OTEL</h4><p><code>logfire.span()</code>, <code>metric_*()</code> and one-line auto-instrumentation. Under the hood it's plain OTEL.</p></div></div>
+        <div class="col"><div class="card teal"><h4>Pydantic-aware</h4><p>Understands Pydantic AI, validations and models — rich instrumentation with no effort.</p></div></div>
+      </div>
+      <div class="cols">
+        <div class="col"><div class="card teal"><h4>Queryable with SQL</h4><p>Traces are queried with SQL (Postgres behind it): dashboards and alerts over your attributes.</p></div></div>
+        <div class="col"><div class="card"><h4>Production-ready</h4><p><strong>Scrubbing</strong> (PII), <strong>sampling</strong> (head/tail) and, new: <strong>prompt management</strong> + <strong>evals</strong>.</p></div></div>
+      </div>
+      <p class="small muted center" style="margin-top:8px">Because it's OTEL, tomorrow you can send the same signal to another backend without touching code.</p>
+      <aside class="notes">Logfire = thin SDK + backend. The differentiator vs others: it's born from Pydantic, so it understands Pydantic AI natively, and everything is queryable with SQL. Most important for avoiding lock-in: underneath it's standard OTEL. And the two features we use in parts 3 and 4 (prompt management + evals) live right here.</aside>
+    </section>
+    <section>
+      <h2>Our configuration</h2>
+      <pre><code class="language-python" data-trim data-line-numbers="1-9|11-15">logfire.configure(
+    send_to_logfire="if-token-present",
+    environment=_settings.logfire_environment,
+    sampling=SamplingOptions(head=_settings.logfire_sample_rate, ...),  # tail sampling
+    scrubbing=ScrubbingOptions(...),                                    # PII out
+)
+
+# Auto-instrumentation: one line per layer
+logfire.instrument_pydantic_ai()     # spans for each agent run + tokens
+logfire.instrument_pydantic()        # model validations
+logfire.instrument_system_metrics()  # CPU / RAM
+logfire.instrument_httpx()           # outbound calls (Groq)
+logfire.instrument_fastapi(app)      # HTTP spans per endpoint</code></pre>
+      <p class="small muted"><span class="filepath">email_triage/main.py</span> — declarative instrumentation, without polluting business logic.</p>
+      <aside class="notes">Show that with a few lines we get tracing of FastAPI, Pydantic AI, httpx and system metrics. Tail sampling: we decide which traces to keep at the end of the trace (once we know if there was an error / high latency), not at the start. Scrubbing strips sensitive data.</aside>
+    </section>
+    <section>
+      <h2>Business metrics, not just infra</h2>
+      <pre><code class="language-python" data-trim data-line-numbers>REQUESTS_TOTAL   = logfire.metric_counter("requests_total")
+LLM_ERRORS_TOTAL = logfire.metric_counter("llm_errors_total")
+LLM_LATENCY_MS   = logfire.metric_histogram("llm_latency_ms")
+CONFIDENCE       = logfire.metric_histogram("confidence")     # 👈 model quality
+STREAM_TTFT_MS   = logfire.metric_histogram("stream_ttft_ms") # time-to-first-token
+LLM_IN_FLIGHT    = logfire.metric_up_down_counter("llm_in_flight")</code></pre>
+      <div class="note-box" style="margin-top:14px">
+        <code>CONFIDENCE</code> is already an eval seed: you're measuring a <em>quality</em> signal of the model in production, not just service health.
+      </div>
+      <p class="small muted"><span class="filepath">email_triage/observability.py</span></p>
+      <aside class="notes">The bridge to evals: we're already measuring confidence as a histogram. That's quality production-monitoring. When we get to evals, this same confidence is what we use for calibration (ECE).</aside>
+    </section>
+  </section>
+
+  <!-- ===================== PART 2: EVALS FUNDAMENTALS ===================== -->
+  <section data-background-color="#101a1b">
+    <span class="kicker teal">Part 2</span>
+    <h1>Evals <span class="teal">fundamentals</span></h1>
+    <p class="muted">Based on <em>“Demystifying evals for AI agents”</em> — Anthropic, 2026.</p>
+    <aside class="notes">Switch to evals theory. It's the conceptual frame we then implement with Pydantic Evals.</aside>
+  </section>
+
+  <section>
+    <section>
+      <h2>What is an eval?</h2>
+      <p>A test for an AI system: <strong>input → grading logic → measure of success</strong>.</p>
+      <div class="card teal" style="margin-top:10px">
+        <p style="color:var(--ink)">The useful analogy (Pydantic): <strong>Case + Evaluator</strong> = a unit test · <strong>Dataset</strong> = the suite · <strong>Experiment</strong> = running <code>pytest</code> and getting a report.</p>
+      </div>
+      <p class="small muted" style="margin-top:14px">The difference from unit tests: AI systems are <span class="accent">probabilistic</span>. The score is usually qualitative/graded, not binary pass/fail.</p>
+      <aside class="notes">Simple definition. The testing analogy lowers the team's anxiety: they already write tests. The difference is non-determinism, which forces graded scores and running multiple times.</aside>
+    </section>
+    <section>
+      <h2>Three families of graders</h2>
+      <div class="cols">
+        <div class="col"><div class="card"><h4>Code-based</h4><p>exact match, regex, static analysis, state checks.<br><br>✅ fast, cheap, reproducible<br>❌ brittle to valid variations</p></div></div>
+        <div class="col"><div class="card teal"><h4>Model-based (LLM judge)</h4><p>rubrics, pairwise comparison.<br><br>✅ flexible, captures nuance<br>❌ non-deterministic, needs <em>calibration</em></p></div></div>
+        <div class="col"><div class="card"><h4>Human</h4><p>SME review, A/B, inter-annotator.<br><br>✅ gold standard<br>❌ expensive and slow</p></div></div>
+      </div>
+      <p class="small muted center" style="margin-top:14px">Anthropic's rule: <strong>deterministic whenever you can</strong>, LLM where needed, humans to calibrate.</p>
+      <aside class="notes">The project already has the first two: code-based (category equality + metrics) and model-based (the JudgeAgent). What's missing is the human layer, even a spot-check, to calibrate the judge. Golden rule: don't use an LLM judge if a deterministic check is enough.</aside>
+    </section>
+    <section>
+      <h2>Capability vs Regression</h2>
+      <div class="cols">
+        <div class="col">
+          <p><span class="tag-cap">capability</span></p>
+          <p class="small">“What can it <strong>do well</strong>?”<br>Starts at a <strong>low</strong> pass rate. It's the hill to climb. Measures progress.</p>
+        </div>
+        <div class="col">
+          <p><span class="tag-reg">regression</span></p>
+          <p class="small">“Does it <strong>still</strong> do what it did?”<br>Pass rate ~<strong>100%</strong>. Guards against backsliding. A drop = something broke.</p>
+        </div>
+      </div>
+      <div class="note-box" style="margin-top:16px">
+        <span class="tag-reg">regression</span> 25 cases (5×category, strict gate <strong>0.95</strong>) · <span class="tag-cap">capability</span> 22 cases (edge/english/tone, trend <strong>0.70</strong>). <code>make eval-regression</code> with <code>--check</code> exits ≠0 if it drops below the threshold.
+      </div>
+      <div class="note-box" style="margin-top:10px">
+        <strong>Real finding:</strong> <code>status-003/004</code> were stably predicted as <code>shipments</code> (defensible ambiguity). Instead of lowering the threshold, we <strong>re-curated</strong> them → moved to capability, and added 2 clear status cases to regression. <span class="accent">A gate you loosen so it passes is not a gate.</span>
+      </div>
+      <aside class="notes">Anthropic's key distinction, already implemented. The mixed dataset.jsonl was split into two disjoint suites. The ambiguous-status finding is the perfect example of Anthropic's step 7 (read transcripts): the harness wasn't broken and the model wasn't wrong — they were borderline labels in the wrong suite. Moved to capability, and regression is at 100%.</aside>
+    </section>
+    <section>
+      <h2>Non-determinism: pass@k vs pass^k</h2>
+      <div class="cols">
+        <div class="col"><div class="card"><h4>pass@k</h4><p>Probability of <strong>at least 1</strong> success in k tries.<br>Rises with k. “One success is enough.”</p></div></div>
+        <div class="col"><div class="card teal"><h4>pass^k</h4><p>Probability that <strong>all k</strong> pass.<br>Falls with k. For <em>customer-facing</em> agents.</p></div></div>
+      </div>
+      <div class="note-box" style="margin-top:14px">
+        75% per trial, 3 trials → pass^3 = 0.75³ ≈ <span class="accent">42%</span>. Our <code>temperature=0.2</code> is <strong>not 0</strong>: the same email can classify differently. For support, <strong>pass^k is the honest metric</strong>.
+      </div>
+      <div class="note-box" style="margin-top:10px">
+        <code>--repeat K</code> (via the framework's <code>repeat=</code>) + <code>compute_pass_hat_k()</code> from <code>case_groups()</code>, with a <em>flaky</em> list (correct on some-but-not-all runs). <code>make eval-passk K=5</code>.
+      </div>
+      <aside class="notes">Already implemented. Since we reply to real customers, what matters is "always right", not "right sometimes". pass^k counts only cases correct across all k runs; a run that errored counts against it. Tested invariant: pass^k ≤ accuracy. We also hardened the gate: if &gt;20% of cases error (rate limit), accuracy is computed only over survivors and could pass vacuously — now the gate detects it and fails.</aside>
+    </section>
+    <section>
+      <h2>The same run, three stories</h2>
+      <p class="muted">3 cases, each run k=3 times. Same data — three very different readings.</p>
+      <div class="cols">
+        <div class="col">
+          <table>
+            <tr><th>Case</th><th>r1</th><th>r2</th><th>r3</th><th>pass^3?</th></tr>
+            <tr><td>A</td><td>✓</td><td>✓</td><td>✓</td><td><span class="teal">pass</span></td></tr>
+            <tr><td>B</td><td>✓</td><td>✓</td><td>✗</td><td><span class="accent">flaky</span></td></tr>
+            <tr><td>C</td><td>✓</td><td>✗</td><td>✗</td><td><span class="accent">flaky</span></td></tr>
+          </table>
+        </div>
+        <div class="col">
+          <div class="card"><h4>pass@3 = <span class="teal">100%</span></h4><p>≥1 success per case → "everything's reachable".</p></div>
+          <div class="card"><h4>accuracy = <span class="muted">67%</span></h4><p>6 of 9 individual runs correct → the comfortable half-truth.</p></div>
+          <div class="card teal"><h4>pass^3 = <span class="accent">33%</span></h4><p>only 1 of 3 correct on all runs → what a customer actually feels.</p></div>
+        </div>
+      </div>
+      <p class="small muted center" style="margin-top:10px">Single-run accuracy would have shown ~67% and let you relax. <strong>pass^k tells the uncomfortable truth: 2 of 3 cases are inconsistent.</strong></p>
+      <aside class="notes">The money line: "A single-run accuracy hides variance. For a customer-facing agent, what matters isn't 'right on average', it's 'right every time' — and that's exactly what pass^k measures. Same data, three different stories: pass@k says everything's reachable, accuracy says two-thirds, pass^k says only one case is actually reliable." The flaky cases (B, C) are literally your backlog of cases to stabilize. Invariant: pass^k ≤ accuracy always.</aside>
+    </section>
+  </section>
+
+  <!-- ===================== PART 3: PROMPT VERSIONING ===================== -->
+  <section data-background-color="#1a1410">
+    <span class="kicker accent">Part 3</span>
+    <h1>Prompt versioning<br>with Logfire</h1>
+    <p class="muted">Getting the prompt out of the code without a redeploy.</p>
+    <aside class="notes">First core ask. Today the prompt is hardcoded; we're going to version it.</aside>
+  </section>
+
+  <section>
+    <section>
+      <h2>The problem</h2>
+      <pre><code class="language-python" data-trim>SYSTEM_PROMPT = """You are an email triage system..."""   # in services/llm.py</code></pre>
+      <ul class="small">
+        <li>Every prompt tweak = <strong>commit + redeploy</strong>.</li>
+        <li>No history of “which prompt was in prod on Tuesday”.</li>
+        <li>Rollback = revert code and redeploy.</li>
+        <li>Product/support can't touch the prompt without touching the repo.</li>
+      </ul>
+      <aside class="notes">Frame the pain before the solution. The prompt is the parameter we iterate on most in an agent, and it's exactly the one most coupled to deploys.</aside>
+    </section>
+    <section>
+      <h2>Two concepts: <span class="teal">prompt</span> and <span class="teal">version</span></h2>
+      <div class="cols">
+        <div class="col"><div class="card"><h4>Prompt</h4><p>The unit you author. It has a <strong>name</strong> (<code>Email Triage System</code>), a <strong>slug</strong> (<code>email-triage-system</code>), template text and settings.</p></div></div>
+        <div class="col"><div class="card teal"><h4>Version</h4><p><strong>Immutable</strong> snapshot of the template (v1, v2, v3…) with author and timestamp. Freezes <em>only the text</em>, not the settings.</p></div></div>
+      </div>
+      <div class="note-box" style="margin-top:16px">
+        And a third: the <strong>label</strong> (e.g. <code>production</code>) — a <em>movable</em> pointer to a version. The app consumes <strong>by label</strong>, not by number.
+      </div>
+      <aside class="notes">Mental model: like git tags + a "production" pointer. Versions are immutable; the production label moves. Important: the version freezes only the template text.</aside>
+    </section>
+    <section>
+      <h2>The code in the app</h2>
+      <pre><code class="language-python" data-trim data-line-numbers="1-5|7-11|13-17">import logfire
+from functools import lru_cache
+
+# ⚠️ logfire.var() REGISTERS the variable and is NOT idempotent → module level, once.
+_VAR = logfire.var(name='prompt__email_triage_system', default=SYSTEM_PROMPT)
+
+@lru_cache(maxsize=1)                 # resolved 1×/process, NEVER per request
+def get_system_prompt() -> str:
+    return _VAR.get(label=settings.prompt_label).value
+    # if Logfire doesn't respond → ResolvedVariable.reason == 'code_default'
+    # → uses the code default: the critical path doesn't break.
+
+# Governance prompt ↔ Category (guard in the lifespan, warns, doesn't crash)
+def assert_category_coverage(prompt: str) -> None:
+    missing = [c.value for c in Category if c.value not in prompt]
+    if missing:
+        _log.warning("prompt.category_drift", missing_categories=missing)</code></pre>
+      <p class="small muted">Two production surprises: <code>logfire.var()</code> <strong>registers once</strong> (call it 2× and it blows up), and <code>.get()</code> returns a <code>ResolvedVariable</code> with <code>.value</code> — it's not a context manager.</p>
+      <aside class="notes">The REAL pattern that ended up in the repo. I found live that logfire.var() isn't idempotent: calling it inside a function broke the test-suite with "already registered". So it lives at module level and only .get() is called per resolution, cached with lru_cache (resolved once in the lifespan, zero fetch per request). The default guarantees the fallback. And the category guard protects governance: if someone edits the prompt in the UI and drops a category, it warns via log without taking down the service.</aside>
+    </section>
+    <section>
+      <h2>Applied to email-triage</h2>
+      <ol class="small">
+        <li>✅ <code>get_system_prompt()</code> resolves by label, injected via <code>Depends()</code> (the repo's DI pattern).</li>
+        <li>✅ Resolved <strong>once in the <code>lifespan</code></strong> (<code>@lru_cache</code>), no per-request fetch — the critical path (1–3 s) pays no lookup.</li>
+        <li>✅ <code>default=SYSTEM_PROMPT</code>: the source of truth <strong>stays in code</strong>; Logfire only overrides it if a version is published.</li>
+        <li>✅ Governance guard prompt ↔ <code>Category</code> (warns if the UI drops a category).</li>
+      </ol>
+      <div class="note-box" style="margin-top:12px"><strong>Manual step (UI):</strong> creating the prompt and moving the <code>production</code> label is a human action. The code works with the fallback until that exists. <strong>Live rollback:</strong> move the label to v(n-1) — no commit, no deploy.</div>
+      <aside class="notes">Delivered respecting the repo's patterns (DI, lifespan). The source of truth for categories is still the code (default + Category enum + guard); Logfire gives agility to iterate the text. Creating/promoting in the UI is the only manual step, and the code doesn't depend on it to boot.</aside>
+    </section>
+  </section>
+
+  <!-- ===================== PART 4: PYDANTIC EVALS ===================== -->
+  <section data-background-color="#101a1b">
+    <span class="kicker teal">Part 4</span>
+    <h1>Evals with<br><span class="teal">Pydantic Evals</span></h1>
+    <p class="muted">From the home-grown harness to the framework — without losing what we have.</p>
+    <aside class="notes">Second core ask. We connect part 2's theory to the concrete API.</aside>
+  </section>
+
+  <section>
+    <section>
+      <h2>A minimal eval, end-to-end</h2>
+      <pre><code class="language-python" data-trim data-line-numbers="1-7|9-12|14-19|21-23">from pydantic_evals import Case, Dataset
+from pydantic_evals.evaluators import Evaluator, EvaluatorContext, IsInstance
+
+case = Case(
+    name='refund_en_01',
+    inputs={'subject': 'Can I return my order?', 'body': '...'},
+    expected_output='refunds',
+    metadata={'difficulty': 'easy', 'lang': 'en'},
+)
+
+class CategoryMatch(Evaluator[dict, str]):          # your is_correct, as an evaluator
+    def evaluate(self, ctx: EvaluatorContext[dict, str]) -> float:
+        return 1.0 if ctx.output == ctx.expected_output else 0.0
+
+dataset = Dataset(
+    name='email-triage',
+    cases=[case],
+    evaluators=[IsInstance(type_name='str'), CategoryMatch()],
+)
+
+async def task(inputs: dict) -> str:
+    resp = await llm.triage(TriageRequest(**inputs))
+    return resp.category.value
+
+report = dataset.evaluate_sync(task)                # = run the suite
+report.print(include_input=True, include_output=True)</code></pre>
+      <p class="small muted">Real repo detail: <code>expected_output</code> is typed as <em>the task's output</em> (<code>TriageResponse</code>), so we store the expected category in <code>metadata</code> (<code>CaseMeta</code>) and the evaluator reads it from there.</p>
+      <aside class="notes">Here you see how much of what we had maps directly: each jsonl line is a Case, is_correct is an Evaluator, run() is evaluate_sync. The migration was mechanical. The one non-obvious tweak: since expected_output must match the output type, the ground-truth category lives in metadata, not in expected_output. We reused metrics.py untouched, rebuilding EvalResult from report.cases.</aside>
+    </section>
+    <section>
+      <h2>LLM judge: home-grown vs built-in</h2>
+      <div class="cols">
+        <div class="col">
+          <p class="small"><strong>Today:</strong> <span class="filepath">evals/judge.py</span><br><code>JudgeAgent</code> with a 5-dimension rubric (relevance, language_match, tone, correctness, overall), <code>temperature=0.1</code>.</p>
+        </div>
+        <div class="col">
+          <pre><code class="language-python" data-trim>from pydantic_evals.evaluators import LLMJudge
+
+dataset.add_evaluator(LLMJudge(
+  rubric=(
+    "The reply is polite, in the same "
+    "language, and invents no order details."
+  ),
+))</code></pre>
+        </div>
+      </div>
+      <div class="note-box" style="margin-top:8px">
+        The <code>JudgeAgent</code> is reused inside a custom <code>Evaluator</code> (<code>JudgeQuality</code>); we added <code>verdict="unknown"</code> so it can <strong>abstain</strong> instead of inventing (excluded from means + <code>unknown_rate</code>), and <code>--judge-sample N</code> exports to <code>evals/calibration/*.jsonl</code> for human spot-check.
+      </div>
+      <aside class="notes">We didn't throw away the JudgeAgent: we wrapped it in a framework Evaluator (numeric scores → report scores; language_match → assertion; verdict → label). Anthropic's "Unknown" advice we implemented as a Literal verdict: when it abstains, scores go None and are excluded from means, but it's counted in unknown_rate. The export leaves the seam for human calibration (human_verdict null for a person to fill in).</aside>
+    </section>
+    <section>
+      <h2>Span-based: evaluate the <em>how</em></h2>
+      <pre><code class="language-python" data-trim data-line-numbers>import logfire
+from pydantic_evals.evaluators import HasMatchingSpan
+
+logfire.configure(send_to_logfire='if-token-present')
+
+dataset.add_evaluator(
+    HasMatchingSpan(
+        query={'name_contains': 'triage'},
+        evaluation_name='called_the_llm',
+    )
+)
+# in custom evaluators you have the full tree: ctx.span_tree</code></pre>
+      <div class="note-box" style="margin-top:10px">
+        The eval reads <strong>the same OTEL span tree</strong> you see in prod → your eval assertions stay <span class="accent">aligned with your telemetry</span>. This closes the loop Part 1 ↔ Part 4.
+      </div>
+      <aside class="notes">This is the "aha" that ties the whole talk together: part 1's observability isn't just for debugging; it's the substrate on which evaluators that look at the process (not just the result) run. Useful when how the answer was reached matters (which tools, how many turns).</aside>
+    </section>
+    <section>
+      <h2>Our ace in the hole: calibration</h2>
+      <pre><code class="language-python" data-trim data-line-numbers>def _compute_ece(results, n_bins=10):
+    # gap between declared confidence and real accuracy, per bin
+    ...
+    ece += (len(bucket) / n) * abs(bin_acc - bin_conf)</code></pre>
+      <p class="small">We already compute <strong>ECE (Expected Calibration Error)</strong> + a reliability diagram in <span class="filepath">evals/metrics.py</span>. In other words: when the model says 0.9 confidence, is it right 90% of the time?</p>
+      <div class="note-box" style="margin-top:10px">Lots of people measure accuracy; <strong>few measure calibration</strong>. It's a strong differentiator to show in the talk.</div>
+      <aside class="notes">Highlight what we already do well. Calibration is sophisticated and uncommon. If confidence is miscalibrated, we can't use confidence thresholds to escalate to a human. It's a great example of a custom eval that goes beyond accuracy.</aside>
+    </section>
+    <section>
+      <h2>Online evaluation: evaluate prod</h2>
+      <pre><code class="language-python" data-trim data-line-numbers="1-2|5-7|8-12">from pydantic_evals.online import OnlineEvalConfig, OnlineEvaluator
+from pydantic_evals.online_capability import OnlineEvaluation
+
+# 3 cheap checks (no LLM): OutputNotEmpty, ConfidenceInRange, LanguageMatches
+def build_online_capability(s: Settings) -> OnlineEvaluation | None:
+    if not s.online_eval_enabled:        # OFF by default
+        return None
+    wrapped = [OnlineEvaluator(evaluator=ev,
+                               sample_rate=s.online_eval_sample_rate,   # 0.05
+                               max_concurrency=s.online_eval_max_concurrency)
+               for ev in (OutputNotEmpty(), ConfidenceInRange(), LanguageMatches())]
+    return OnlineEvaluation(wrapped, config=OnlineEvalConfig(default_sample_rate=..., enabled=True))
+
+# Agent(model, capabilities=[capability])  → injected via get_llm_service()</code></pre>
+      <p class="small muted"><strong>Dispatched async after the run</strong> → zero added latency in the response; <code>sample_rate</code> + <code>max_concurrency</code> bound the footprint. Emits OTel <code>gen_ai.evaluation.result</code> events. Verified live: <code>/triage</code> untouched.</p>
+      <aside class="notes">Delivered and off by default (opt-in via env). Imports: OnlineEvaluation lives in online_capability; OnlineEvalConfig/OnlineEvaluator in the public pydantic_evals.online. max_concurrency is per-evaluator (OnlineEvaluator), not in the global config. I verified pydantic-ai 1.104 supports Agent(capabilities=...) — that was the main risk of this phase. The capability dispatches async after the run, so it doesn't touch /triage latency.</aside>
+    </section>
+  </section>
+
+  <!-- ===================== RESULTS ===================== -->
+  <section data-background-color="#101a1b">
+    <section>
+      <span class="kicker teal">Results</span>
+      <h2>What landed in the repo</h2>
+      <div class="cols">
+        <div class="col">
+          <div class="card teal"><h4>Versioned prompt</h4><p>resolved 1×/lifespan, code fallback, category guard.</p></div>
+          <div class="card teal"><h4>Harness on Pydantic Evals</h4><p><code>Dataset/Case/Evaluator</code>; metrics (acc, macro-F1, ECE, reliability) intact; judge reused; traces to Logfire.</p></div>
+          <div class="card teal"><h4>2 suites + gate</h4><p>regression 25 (0.95) · capability 22 (0.70); <code>--check</code> + error-rate guard.</p></div>
+        </div>
+        <div class="col">
+          <div class="card"><h4>pass^k</h4><p><code>--repeat K</code>, flaky list, span <code>eval.pass_hat_k</code>.</p></div>
+          <div class="card"><h4>Judge “Unknown”</h4><p>abstention + <code>unknown_rate</code> + human-calibration export.</p></div>
+          <div class="card"><h4>Online evals</h4><p>3 cheap checks, async, off-by-default, OTel events.</p></div>
+        </div>
+      </div>
+      <p class="small muted center" style="margin-top:8px">Balanced dataset (5×5 / ≥4) with <code>source</code> real/synthetic. <strong>115 tests</strong> · pyright strict · pre-commit ✅</p>
+      <aside class="notes">Snapshot of what shipped. All driven from make: eval, eval-quick, eval-regression, eval-capability, eval-passk. And none of it breaks the critical path or the tests. 7 phases = 7 reviewable PRs, one exec-plan + feature/testing docs per phase, no Groq in tests (dependency overrides).</aside>
+    </section>
+    <section>
+      <h2>The most useful lesson</h2>
+      <div class="note-box">
+        The regression gate <strong>failed</strong> on the first real run (~0.92): two <code>status</code> cases were stably predicted as <code>shipments</code>.
+      </div>
+      <ul class="small" style="margin-top:14px">
+        <li>It wasn't the harness or a model bug: they were <strong>borderline labels</strong> in the wrong suite (Anthropic, step 7: <em>read the transcripts</em>).</li>
+        <li>We didn't lower the threshold to fake it → we <strong>re-curated</strong> them into capability + 2 clear replacements.</li>
+        <li>Bonus: we found a run with many errors was passing <em>vacuously</em> → <strong>error-rate guard ≤ 20%</strong>.</li>
+      </ul>
+      <p class="small muted center" style="margin-top:10px">Final regression: <span class="accent">accuracy 1.000 · macro-F1 1.000 · errors 4% → PASS</span></p>
+      <aside class="notes">This is the talk's moral, grounded in practice: evals aren't just numbers, they're a diagnostic tool. The "failure" taught us something about the dataset and made us harden the gate. That's exactly the virtuous cycle Anthropic preaches.</aside>
+    </section>
+  </section>
+
+  <!-- ===================== CLOSING ===================== -->
+  <section data-background-gradient="linear-gradient(135deg,#23120f 0%,#15171c 100%)">
+    <h2>Takeaways</h2>
+    <ul class="small">
+      <li><strong>One signal, many uses:</strong> OTEL spans serve debugging, dashboards <em>and</em> evals.</li>
+      <li><strong>Prompt versioning:</strong> save ≠ promote; the app consumes by <code>label</code>; code fallback; rollback with no redeploy.</li>
+      <li><strong>Evals:</strong> deterministic graders first, LLM with calibration (and an “Unknown” exit), and <em>read the transcripts</em>.</li>
+      <li><strong>Consistency:</strong> for support, <code>pass^k</code> &gt; single-run accuracy.</li>
+      <li><strong>A gate you loosen so it passes is not a gate</strong> — re-curate the dataset, not the threshold.</li>
+    </ul>
+    <p class="center" style="margin-top:22px"><span class="pill">115 tests green</span></p>
+    <p class="center" style="margin-top:14px"><span class="pill teal">Thanks</span> <span class="muted small">· questions ·</span></p>
+    <aside class="notes">Five things to take away. The team didn't start from zero: there was solid observability and a decent harness, and we pushed it to the state of the art in 7 small phases. The last point is the moral of the talk.</aside>
+  </section>
+
+  <!-- ===================== RESOURCES ===================== -->
+  <section>
+    <h2>Resources</h2>
+    <ul class="xsmall">
+      <li><a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Demystifying evals for AI agents — Anthropic</a></li>
+      <li><a href="https://ai.pydantic.dev/evals/">Pydantic Evals — Overview</a> · <a href="https://ai.pydantic.dev/evals/how-to/logfire-integration/">Logfire Integration</a> · <a href="https://ai.pydantic.dev/evals/online-evaluation/">Online Evaluation</a></li>
+      <li><a href="https://ai.pydantic.dev/evals/evaluators/llm-judge/">LLM Judge</a> · <a href="https://ai.pydantic.dev/evals/evaluators/span-based/">Span-Based</a> · <a href="https://ai.pydantic.dev/evals/how-to/multi-run/">Multi-Run</a></li>
+      <li><a href="https://pydantic.dev/docs/logfire/prompt-management/">Logfire — Prompt Management</a> · <a href="https://pydantic.dev/docs/logfire/prompt-management/concepts/">Concepts</a> · <a href="https://pydantic.dev/docs/logfire/prompt-management/application/">Use in App</a></li>
+      <li><a href="https://pydantic.dev/docs/logfire/manage/managed-variables/">Managed Variables</a> · <a href="https://pydantic.dev/docs/logfire/evaluate/evals/">Evals: Datasets &amp; Experiments</a></li>
+      <li><a href="https://pydantic.dev/docs/logfire/integrations/llms/pydanticai/">Logfire ↔ Pydantic AI</a></li>
+    </ul>
+    <aside class="notes">Leave the links up during Q&amp;A.</aside>
+  </section>
+
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/reveal.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/plugin/notes/notes.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/plugin/highlight/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/plugin/markdown/markdown.min.js"></script>
+<script>
+  Reveal.initialize({
+    hash: true,
+    slideNumber: 'c/t',
+    transition: 'slide',
+    backgroundTransition: 'fade',
+    width: 1280,
+    height: 760,
+    margin: 0.06,
+    plugins: [ RevealHighlight, RevealNotes, RevealMarkdown ]
+  });
+</script>
+</body>
+</html>

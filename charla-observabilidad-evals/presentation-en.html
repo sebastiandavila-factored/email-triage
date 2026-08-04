@@ -68,7 +68,7 @@
 
   <!-- ===================== 0. TITLE ===================== -->
   <section data-background-gradient="linear-gradient(135deg,#15171c 0%,#23120f 100%)">
-    <span class="kicker">Tech talk · ~30 min · roadmap shipped ✅</span>
+    <span class="kicker">Tech talk</span>
     <h1>Observability &amp; <span class="accent">Evals</span><br>with Pydantic AI + Logfire</h1>
     <p class="muted" style="margin-top:22px">From OTEL spans and metrics to <em>prompt versioning</em> and <em>evals best practices</em>,<br>using a real case: <code>email-triage</code>.</p>
     <aside class="notes">Intro. The goal is to show how we took an LLM agent that already had observability and pushed it to a level where we version prompts and measure quality with evals. Everything grounded in email-triage — and it's already shipped, not a wishlist.</aside>
@@ -292,7 +292,7 @@ LLM_IN_FLIGHT    = logfire.metric_up_down_counter("llm_in_flight")</code></pre>
         </div>
       </div>
       <div class="note-box" style="margin-top:16px">
-        <strong>Shipped:</strong> <span class="tag-reg">regression</span> 25 cases (5×category, strict gate <strong>0.95</strong>) · <span class="tag-cap">capability</span> 22 cases (edge/english/tone, trend <strong>0.70</strong>). <code>make eval-regression</code> with <code>--check</code> exits ≠0 if it drops below the threshold.
+        <span class="tag-reg">regression</span> 25 cases (5×category, strict gate <strong>0.95</strong>) · <span class="tag-cap">capability</span> 22 cases (edge/english/tone, trend <strong>0.70</strong>). <code>make eval-regression</code> with <code>--check</code> exits ≠0 if it drops below the threshold.
       </div>
       <div class="note-box" style="margin-top:10px">
         <strong>Real finding:</strong> <code>status-003/004</code> were stably predicted as <code>shipments</code> (defensible ambiguity). Instead of lowering the threshold, we <strong>re-curated</strong> them → moved to capability, and added 2 clear status cases to regression. <span class="accent">A gate you loosen so it passes is not a gate.</span>
@@ -309,9 +309,30 @@ LLM_IN_FLIGHT    = logfire.metric_up_down_counter("llm_in_flight")</code></pre>
         75% per trial, 3 trials → pass^3 = 0.75³ ≈ <span class="accent">42%</span>. Our <code>temperature=0.2</code> is <strong>not 0</strong>: the same email can classify differently. For support, <strong>pass^k is the honest metric</strong>.
       </div>
       <div class="note-box" style="margin-top:10px">
-        <strong>Shipped:</strong> <code>--repeat K</code> (via the framework's <code>repeat=</code>) + <code>compute_pass_hat_k()</code> from <code>case_groups()</code>, with a <em>flaky</em> list (correct on some-but-not-all runs). <code>make eval-passk K=5</code>.
+        <code>--repeat K</code> (via the framework's <code>repeat=</code>) + <code>compute_pass_hat_k()</code> from <code>case_groups()</code>, with a <em>flaky</em> list (correct on some-but-not-all runs). <code>make eval-passk K=5</code>.
       </div>
       <aside class="notes">Already implemented. Since we reply to real customers, what matters is "always right", not "right sometimes". pass^k counts only cases correct across all k runs; a run that errored counts against it. Tested invariant: pass^k ≤ accuracy. We also hardened the gate: if &gt;20% of cases error (rate limit), accuracy is computed only over survivors and could pass vacuously — now the gate detects it and fails.</aside>
+    </section>
+    <section>
+      <h2>The same run, three stories</h2>
+      <p class="muted">3 cases, each run k=3 times. Same data — three very different readings.</p>
+      <div class="cols">
+        <div class="col">
+          <table>
+            <tr><th>Case</th><th>r1</th><th>r2</th><th>r3</th><th>pass^3?</th></tr>
+            <tr><td>A</td><td>✓</td><td>✓</td><td>✓</td><td><span class="teal">pass</span></td></tr>
+            <tr><td>B</td><td>✓</td><td>✓</td><td>✗</td><td><span class="accent">flaky</span></td></tr>
+            <tr><td>C</td><td>✓</td><td>✗</td><td>✗</td><td><span class="accent">flaky</span></td></tr>
+          </table>
+        </div>
+        <div class="col">
+          <div class="card"><h4>pass@3 = <span class="teal">100%</span></h4><p>≥1 success per case → "everything's reachable".</p></div>
+          <div class="card"><h4>accuracy = <span class="muted">67%</span></h4><p>6 of 9 individual runs correct → the comfortable half-truth.</p></div>
+          <div class="card teal"><h4>pass^3 = <span class="accent">33%</span></h4><p>only 1 of 3 correct on all runs → what a customer actually feels.</p></div>
+        </div>
+      </div>
+      <p class="small muted center" style="margin-top:10px">Single-run accuracy would have shown ~67% and let you relax. <strong>pass^k tells the uncomfortable truth: 2 of 3 cases are inconsistent.</strong></p>
+      <aside class="notes">The money line: "A single-run accuracy hides variance. For a customer-facing agent, what matters isn't 'right on average', it's 'right every time' — and that's exactly what pass^k measures. Same data, three different stories: pass@k says everything's reachable, accuracy says two-thirds, pass^k says only one case is actually reliable." The flaky cases (B, C) are literally your backlog of cases to stabilize. Invariant: pass^k ≤ accuracy always.</aside>
     </section>
     <section>
       <h2>Anthropic's roadmap, in 8 steps</h2>
@@ -395,7 +416,7 @@ LLM_IN_FLIGHT    = logfire.metric_up_down_counter("llm_in_flight")</code></pre>
       <aside class="notes">This decoupling is the governance key: saving many versions doesn't affect production until you consciously move the label. And rollback is just moving the label back.</aside>
     </section>
     <section>
-      <h2>The code in the app <span class="small teal">(what we shipped)</span></h2>
+      <h2>The code in the app</h2>
       <pre><code class="language-python" data-trim data-line-numbers="1-5|7-11|13-17">import logfire
 from functools import lru_cache
 
@@ -417,7 +438,7 @@ def assert_category_coverage(prompt: str) -> None:
       <aside class="notes">The REAL pattern that ended up in the repo. I found live that logfire.var() isn't idempotent: calling it inside a function broke the test-suite with "already registered". So it lives at module level and only .get() is called per resolution, cached with lru_cache (resolved once in the lifespan, zero fetch per request). The default guarantees the fallback. And the category guard protects governance: if someone edits the prompt in the UI and drops a category, it warns via log without taking down the service.</aside>
     </section>
     <section>
-      <h2>Applied to email-triage <span class="small teal">✅ delivered</span></h2>
+      <h2>Applied to email-triage</h2>
       <ol class="small">
         <li>✅ <code>get_system_prompt()</code> resolves by label, injected via <code>Depends()</code> (the repo's DI pattern).</li>
         <li>✅ Resolved <strong>once in the <code>lifespan</code></strong> (<code>@lru_cache</code>), no per-request fetch — the critical path (1–3 s) pays no lookup.</li>
@@ -497,7 +518,7 @@ dataset.add_evaluator(LLMJudge(
         </div>
       </div>
       <div class="note-box" style="margin-top:8px">
-        <strong>Shipped:</strong> the <code>JudgeAgent</code> is reused inside a custom <code>Evaluator</code> (<code>JudgeQuality</code>); we added <code>verdict="unknown"</code> so it can <strong>abstain</strong> instead of inventing (excluded from means + <code>unknown_rate</code>), and <code>--judge-sample N</code> exports to <code>evals/calibration/*.jsonl</code> for human spot-check.
+        The <code>JudgeAgent</code> is reused inside a custom <code>Evaluator</code> (<code>JudgeQuality</code>); we added <code>verdict="unknown"</code> so it can <strong>abstain</strong> instead of inventing (excluded from means + <code>unknown_rate</code>), and <code>--judge-sample N</code> exports to <code>evals/calibration/*.jsonl</code> for human spot-check.
       </div>
       <aside class="notes">We didn't throw away the JudgeAgent: we wrapped it in a framework Evaluator (numeric scores → report scores; language_match → assertion; verdict → label). Anthropic's "Unknown" advice we implemented as a Literal verdict: when it abstains, scores go None and are excluded from means, but it's counted in unknown_rate. The export leaves the seam for human calibration (human_verdict null for a person to fill in).</aside>
     </section>
@@ -531,7 +552,7 @@ dataset.add_evaluator(
       <aside class="notes">Highlight what we already do well. Calibration is sophisticated and uncommon. If confidence is miscalibrated, we can't use confidence thresholds to escalate to a human. It's a great example of a custom eval that goes beyond accuracy.</aside>
     </section>
     <section>
-      <h2>Online evaluation: evaluate prod <span class="small teal">✅ delivered</span></h2>
+      <h2>Online evaluation: evaluate prod</h2>
       <pre><code class="language-python" data-trim data-line-numbers="1-2|5-7|8-12">from pydantic_evals.online import OnlineEvalConfig, OnlineEvaluator
 from pydantic_evals.online_capability import OnlineEvaluation
 
@@ -555,7 +576,7 @@ def build_online_capability(s: Settings) -> OnlineEvaluation | None:
   <section data-background-color="#101a1b">
     <section>
       <span class="kicker teal">Results</span>
-      <h2>What landed in the repo <span class="small teal">— 7/7 ✅</span></h2>
+      <h2>What landed in the repo</h2>
       <div class="cols">
         <div class="col">
           <div class="card teal"><h4>Versioned prompt</h4><p>resolved 1×/lifespan, code fallback, category guard.</p></div>
@@ -596,7 +617,7 @@ def build_online_capability(s: Settings) -> OnlineEvaluation | None:
       <li><strong>Consistency:</strong> for support, <code>pass^k</code> &gt; single-run accuracy.</li>
       <li><strong>A gate you loosen so it passes is not a gate</strong> — re-curate the dataset, not the threshold.</li>
     </ul>
-    <p class="center" style="margin-top:22px"><span class="pill teal">7/7 phases shipped</span> <span class="pill">115 tests green</span></p>
+    <p class="center" style="margin-top:22px"><span class="pill">115 tests green</span></p>
     <p class="center" style="margin-top:14px"><span class="pill teal">Thanks</span> <span class="muted small">· questions ·</span></p>
     <aside class="notes">Five things to take away. The team didn't start from zero: there was solid observability and a decent harness, and we pushed it to the state of the art in 7 small phases. The last point is the moral of the talk.</aside>
   </section>
@@ -612,8 +633,7 @@ def build_online_capability(s: Settings) -> OnlineEvaluation | None:
       <li><a href="https://pydantic.dev/docs/logfire/manage/managed-variables/">Managed Variables</a> · <a href="https://pydantic.dev/docs/logfire/evaluate/evals/">Evals: Datasets &amp; Experiments</a></li>
       <li><a href="https://pydantic.dev/docs/logfire/integrations/llms/pydanticai/">Logfire ↔ Pydantic AI</a></li>
     </ul>
-    <p class="small muted" style="margin-top:20px">📄 See also: <code>delivery-guide.md</code> (timed script) and <code>guia-de-estudio.md</code> (reading plan).</p>
-    <aside class="notes">Leave the links up during Q&amp;A. The delivery guide has the timed script; the study guide has the day-by-day reading plan.</aside>
+    <aside class="notes">Leave the links up during Q&amp;A.</aside>
   </section>
 
   </div>

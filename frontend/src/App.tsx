@@ -7,6 +7,7 @@ import { Signup } from './pages/Signup'
 import { Dashboard } from './pages/Dashboard'
 import { Settings } from './pages/Settings'
 import { Workspace } from './pages/Workspace'
+import { Studio } from './pages/Studio'
 import { NewWorkspace } from './pages/NewWorkspace'
 import { AcceptInvite } from './pages/AcceptInvite'
 import { Compare } from './pages/Compare'
@@ -39,6 +40,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Workspace />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/studio"
+            element={
+              <ProtectedRoute>
+                <Studio />
               </ProtectedRoute>
             }
           />

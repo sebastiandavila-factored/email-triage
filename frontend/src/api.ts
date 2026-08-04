@@ -91,6 +91,47 @@ export interface CreateInviteResponse {
   message: string
 }
 
+// ── Triage Studio (F1–F3) ─────────────────────────────────────────────────────
+
+export interface Category {
+  id: string
+  slug: string
+  name: string
+  description: string
+  is_active: boolean
+  sort_order: number
+}
+
+export interface TriageExample {
+  id: string
+  category_id: string
+  kind: string
+  subject: string
+  body: string
+  expected_reply: string | null
+}
+
+export interface PromptDraft {
+  role: string | null
+  task: string | null
+  guardrails: string | null
+  tone: string | null
+}
+
+export interface PromptPreview {
+  prompt: string
+  allowed_slugs: string[]
+}
+
+export interface PromptVersion {
+  id: string
+  version: number
+  is_active: boolean
+  accuracy: number | null
+  macro_f1: number | null
+  published_at: string
+}
+
 export class ApiError extends Error {
   status: number
   detail: string
@@ -288,5 +329,81 @@ export const api = {
 
   acceptInvite(token: string, inviteToken: string): Promise<{ tenant_id: string; tenant_name: string; role: string }> {
     return request('/invitations/accept', { method: 'POST', body: JSON.stringify({ token: inviteToken }) }, token)
+  },
+
+  // ── Triage Studio: categories ───────────────────────────────────────────────
+
+  listCategories(token: string, tid: string): Promise<Category[]> {
+    return request(`/workspaces/${tid}/categories`, {}, token)
+  },
+
+  createCategory(token: string, tid: string, slug: string, name: string, description: string): Promise<Category> {
+    return request(
+      `/workspaces/${tid}/categories`,
+      { method: 'POST', body: JSON.stringify({ slug, name, description }) },
+      token,
+    )
+  },
+
+  updateCategory(
+    token: string,
+    tid: string,
+    cid: string,
+    patch: Partial<Pick<Category, 'name' | 'description' | 'is_active' | 'sort_order'>>,
+  ): Promise<Category> {
+    return request(`/workspaces/${tid}/categories/${cid}`, { method: 'PATCH', body: JSON.stringify(patch) }, token)
+  },
+
+  deleteCategory(token: string, tid: string, cid: string): Promise<void> {
+    return request(`/workspaces/${tid}/categories/${cid}`, { method: 'DELETE' }, token)
+  },
+
+  // ── Triage Studio: examples ─────────────────────────────────────────────────
+
+  listExamples(token: string, tid: string, cid: string): Promise<TriageExample[]> {
+    return request(`/workspaces/${tid}/categories/${cid}/examples`, {}, token)
+  },
+
+  addExample(
+    token: string,
+    tid: string,
+    cid: string,
+    example: { kind: string; subject: string; body: string; expected_reply?: string | null },
+  ): Promise<TriageExample> {
+    return request(
+      `/workspaces/${tid}/categories/${cid}/examples`,
+      { method: 'POST', body: JSON.stringify(example) },
+      token,
+    )
+  },
+
+  deleteExample(token: string, tid: string, eid: string): Promise<void> {
+    return request(`/workspaces/${tid}/examples/${eid}`, { method: 'DELETE' }, token)
+  },
+
+  // ── Triage Studio: prompt draft / preview / versions ────────────────────────
+
+  getDraft(token: string, tid: string): Promise<PromptDraft> {
+    return request(`/workspaces/${tid}/prompt/draft`, {}, token)
+  },
+
+  saveDraft(token: string, tid: string, draft: PromptDraft): Promise<PromptDraft> {
+    return request(`/workspaces/${tid}/prompt/draft`, { method: 'PUT', body: JSON.stringify(draft) }, token)
+  },
+
+  previewPrompt(token: string, tid: string): Promise<PromptPreview> {
+    return request(`/workspaces/${tid}/prompt/preview`, { method: 'POST' }, token)
+  },
+
+  listVersions(token: string, tid: string): Promise<PromptVersion[]> {
+    return request(`/workspaces/${tid}/prompt/versions`, {}, token)
+  },
+
+  publishPrompt(token: string, tid: string): Promise<PromptVersion> {
+    return request(`/workspaces/${tid}/prompt/publish`, { method: 'POST' }, token)
+  },
+
+  activateVersion(token: string, tid: string, version: number): Promise<PromptVersion> {
+    return request(`/workspaces/${tid}/prompt/versions/${version}/activate`, { method: 'POST' }, token)
   },
 }

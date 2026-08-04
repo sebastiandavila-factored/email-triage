@@ -8,6 +8,7 @@ import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 
 import logfire
 from email_triage.config import Settings
@@ -317,7 +318,9 @@ async def run(
     cases_by_id = {c.id: c for c in cases}
 
     async def task(req: TriageRequest) -> TriageResponse:
-        return await llm.triage(req)
+        # The eval LLMService is the legacy path (enum output, no allowed_slugs), so
+        # its result is always a TriageResponse despite the widened union return type.
+        return cast("TriageResponse", await llm.triage(req))
 
     with logfire.span(
         "eval.run",

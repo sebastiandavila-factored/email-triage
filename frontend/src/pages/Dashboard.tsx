@@ -55,6 +55,9 @@ export function Dashboard() {
           <Link to="/workspace" className="text-gray-600 hover:text-gray-900">
             Workspace
           </Link>
+          <Link to="/studio" className="text-gray-600 hover:text-gray-900">
+            Studio
+          </Link>
           <Link to="/settings" className="text-gray-600 hover:text-gray-900">
             Settings
           </Link>

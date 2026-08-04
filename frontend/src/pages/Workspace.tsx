@@ -128,6 +128,9 @@ export function Workspace() {
           <Link to="/dashboard" className="text-gray-600 hover:text-gray-900">
             Dashboard
           </Link>
+          <Link to="/studio" className="text-gray-600 hover:text-gray-900">
+            Studio
+          </Link>
           <button onClick={logout} className="text-gray-600 hover:text-gray-900">
             Logout
           </button>

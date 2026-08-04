@@ -6,7 +6,7 @@ import pytest
 from email_triage.config import Settings
 from email_triage.db import engine as db_engine_module
 from email_triage.db.base import Base
-from email_triage.deps import get_llm_service, get_settings
+from email_triage.deps import get_settings, get_triage_service
 from email_triage.main import app
 from email_triage.schemas import Category, StreamingTriageResponse, TriageRequest, TriageResponse
 from email_triage.services.llm import LLMService
@@ -108,7 +108,7 @@ def _reset_rate_limiter() -> None:  # pyright: ignore[reportUnusedFunction]
 @pytest.fixture()
 def client() -> Generator[TestClient]:
     app.dependency_overrides[get_settings] = _mock_settings
-    app.dependency_overrides[get_llm_service] = MockLLMService
+    app.dependency_overrides[get_triage_service] = MockLLMService
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
@@ -117,7 +117,7 @@ def client() -> Generator[TestClient]:
 @pytest.fixture()
 def failing_client() -> Generator[TestClient]:
     app.dependency_overrides[get_settings] = _mock_settings
-    app.dependency_overrides[get_llm_service] = FailingLLMService
+    app.dependency_overrides[get_triage_service] = FailingLLMService
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
@@ -126,7 +126,7 @@ def failing_client() -> Generator[TestClient]:
 @pytest.fixture()
 def streaming_client() -> Generator[TestClient]:
     app.dependency_overrides[get_settings] = _mock_settings
-    app.dependency_overrides[get_llm_service] = StreamingMockLLMService
+    app.dependency_overrides[get_triage_service] = StreamingMockLLMService
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
@@ -135,7 +135,7 @@ def streaming_client() -> Generator[TestClient]:
 @pytest.fixture()
 def failing_stream_client() -> Generator[TestClient]:
     app.dependency_overrides[get_settings] = _mock_settings
-    app.dependency_overrides[get_llm_service] = FailingStreamLLMService
+    app.dependency_overrides[get_triage_service] = FailingStreamLLMService
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()

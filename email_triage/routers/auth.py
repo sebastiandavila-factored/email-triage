@@ -27,6 +27,7 @@ from email_triage.deps import (
     invalidate_api_key_cache,
     limiter,
 )
+from email_triage.services.triage_config import TriageConfigService
 
 _log = structlog.get_logger()
 
@@ -110,6 +111,7 @@ async def signup(
         plaintext_key, key_hash = issue_api_key(tenant.id)
         tenant.api_key_hash = key_hash
         await TenantRepo().add_member(session, user.id, tenant.id, "owner")
+        await TriageConfigService().seed_defaults(session, tenant.id)
 
     token = create_access_token(
         settings.session_secret, user.id, settings.access_token_expire_minutes
@@ -403,6 +405,7 @@ async def callback(
             plaintext_key, key_hash = issue_api_key(tenant.id)
             tenant.api_key_hash = key_hash
             await TenantRepo().add_member(session, user_id_val, tenant.id, "owner")
+            await TriageConfigService().seed_defaults(session, tenant.id)
             tenant_name_val = tenant.name
             tenant_type_val = tenant.type
             plan_val = tenant.plan
