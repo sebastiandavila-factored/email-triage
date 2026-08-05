@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './AuthContext'
-import { nextAfterAuth } from './invite'
 import { ProtectedRoute } from './ProtectedRoute'
+import { Landing } from './pages/Landing'
 import { Login } from './pages/Login'
 import { Signup } from './pages/Signup'
 import { Dashboard } from './pages/Dashboard'
@@ -17,6 +17,9 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
+          {/* Public root: the landing page. Authenticated visitors are bounced
+              into the app by the Landing component itself. */}
+          <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route
@@ -69,9 +72,9 @@ export default function App() {
           />
           {/* Not protected: handles the not-signed-in case itself (stash token → login). */}
           <Route path="/accept-invite" element={<AcceptInvite />} />
-          {/* Catch-all: after Google SSO the app lands on "/" → route to the
-              pending invite if there is one, else the dashboard. */}
-          <Route path="*" element={<Navigate to={nextAfterAuth()} replace />} />
+          {/* Unknown paths fall back to the landing; if authenticated, Landing
+              forwards to the pending invite or the dashboard. */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

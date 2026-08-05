@@ -24,6 +24,7 @@ Technical documents that translate a product intent into concrete code changes. 
 | 27 | [Triage Studio F4 — MCP server + Claude Code workflows](27-triage-studio-mcp-workflows.md) | ✅ | `triage-studio` MCP server (stdio) with 6 typed tools wrapping the HTTP API (auth + actionable error translation), plus `.claude/commands/*` slash commands. Optional `mcp>=2.0` dep; the API app is unchanged |
 | 28 | [Triage Studio F5 — Studio UI (React)](28-triage-studio-ui.md) | ✅ | `/studio` page: manage categories, few-shot examples, prompt template blocks, preview the compiled XML, and publish/rollback versions. Role-gated via `can()`, "published wins" banner. Frontend-only |
 | 29 | [Simplify the compiled prompt](29-prompt-template-simplification.md) | ✅ | Rework the compiled prompt to Anthropic's guidance: plain prose for role/task/categories/guidelines, XML tags only for the few-shot `<examples>` and the untrusted `<email>`; drop `<output_format>` (structured output covers it). Updates tests + landing §03 |
+| 30 | [Landing as the app root + login entry](30-landing-as-root.md) | ✅ | Make `/` the landing page inside the SPA (ported from the F6 HTML, CSS scoped under `.ts-root`), with a "Log in" button; authenticated visitors (incl. SSO return) forward into the app |
 
 Statuses: 📋 proposed · 🚧 in progress · ✅ delivered · ❌ discarded
 
