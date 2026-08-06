@@ -1,1 +1,25 @@
 @import "tailwindcss";
+@import "./theme.css";
+
+/* Bridge the design tokens (theme.css) to Tailwind v4 utilities. Because these map
+   to CSS vars that flip on `data-theme`, utilities like `bg-paper`/`text-ink`/`bg-brand`
+   are theme-aware automatically. */
+@theme inline {
+  --color-paper: var(--paper);
+  --color-ground: var(--ground);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-brand: var(--teal);
+  --color-brand-bright: var(--teal-bright);
+  --color-brand-wash: var(--teal-wash);
+  --color-amber: var(--amber);
+  --color-amber-wash: var(--amber-wash);
+  --color-crit: var(--crit);
+
+  --font-sans: var(--sans);
+  --font-mono: var(--mono);
+}

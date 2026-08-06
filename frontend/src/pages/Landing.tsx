@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
+import { useTheme } from '../ThemeContext'
 import { nextAfterAuth } from '../invite'
 import { LANDING_BODY } from './landingBody'
 import './Landing.css'
@@ -10,6 +11,7 @@ import './Landing.css'
 // bootstrap) is bounced straight into the app.
 export function Landing() {
   const { token } = useAuth()
+  const { toggle } = useTheme()
   const navigate = useNavigate()
   const ref = useRef<HTMLDivElement>(null)
 
@@ -20,14 +22,10 @@ export function Landing() {
     const container = ref.current
     if (!container) return
 
-    // Theme toggle: flip data-theme on <html>, overriding prefers-color-scheme.
+    // Theme toggle: delegate to the shared ThemeProvider so the landing and the app
+    // share one theme state (persisted, respects prefers-color-scheme).
     const themeBtn = container.querySelector<HTMLButtonElement>('#themeBtn')
-    const onTheme = () => {
-      const cur =
-        rootEl.getAttribute('data-theme') ??
-        (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-      rootEl.setAttribute('data-theme', cur === 'dark' ? 'light' : 'dark')
-    }
+    const onTheme = () => toggle()
     themeBtn?.addEventListener('click', onTheme)
 
     // Internal links (the "Log in" CTAs) navigate client-side; #hash links keep
@@ -76,7 +74,7 @@ export function Landing() {
       io?.disconnect()
       if (timer) clearTimeout(timer)
     }
-  }, [navigate])
+  }, [navigate, toggle])
 
   if (token) return <Navigate to={nextAfterAuth()} replace />
   return <div className="ts-root" ref={ref} dangerouslySetInnerHTML={{ __html: LANDING_BODY }} />

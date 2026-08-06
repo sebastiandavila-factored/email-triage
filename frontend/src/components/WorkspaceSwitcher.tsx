@@ -7,7 +7,7 @@ export function WorkspaceSwitcher() {
     <select
       value={activeWorkspace?.id ?? ''}
       onChange={(e) => setActiveWorkspace(e.target.value)}
-      className="border border-gray-300 rounded-lg px-2 py-1 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+      className="border border-line rounded-lg px-2 py-1 text-sm text-ink bg-paper focus:outline-none focus:ring-2 focus:ring-brand"
       aria-label="Active workspace"
     >
       {workspaces.map((w) => (

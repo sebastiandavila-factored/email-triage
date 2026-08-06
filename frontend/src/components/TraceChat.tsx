@@ -46,17 +46,19 @@ export function TraceChat({
   }
 
   return (
-    <div className="border-t border-gray-200 pt-4 mt-4 space-y-3">
+    <div className="border-t border-line pt-4 mt-4 space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-medium text-gray-500">Debug this trace</p>
-        <code className="text-[10px] text-gray-400" title="OTel trace id">
+        <p className="font-mono text-[11px] uppercase tracking-wide text-brand font-semibold">
+          Debug this trace
+        </p>
+        <code className="text-[10px] text-faint font-mono" title="OTel trace id">
           {traceId.slice(0, 12)}…
         </code>
       </div>
 
       <div ref={threadRef} className="max-h-72 overflow-y-auto space-y-2 pr-1">
         {messages.length === 0 && !loading && (
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-faint">
             Ask why this triage behaved as it did — latency, category, confidence, errors.
           </p>
         )}
@@ -65,17 +67,19 @@ export function TraceChat({
             key={i}
             className={`text-sm rounded-lg px-3 py-2 whitespace-pre-wrap ${
               m.role === 'user'
-                ? 'bg-indigo-50 text-indigo-900 ml-6'
-                : 'bg-gray-50 text-gray-700 mr-6'
+                ? 'bg-brand-wash text-ink ml-6'
+                : 'bg-ground text-ink-soft border border-line mr-6'
             }`}
           >
             {m.content}
           </div>
         ))}
-        {loading && <p className="text-xs text-gray-400 mr-6">Reading traces…</p>}
+        {loading && <p className="text-xs text-faint mr-6">Reading traces…</p>}
       </div>
 
-      {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+      {error && (
+        <p className="text-sm text-crit border border-line rounded-lg px-3 py-2">{error}</p>
+      )}
 
       <form onSubmit={send} className="flex gap-2">
         <input
@@ -84,12 +88,12 @@ export function TraceChat({
           onChange={(e) => setInput(e.target.value)}
           disabled={loading}
           placeholder="e.g. Why was this slow?"
-          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+          className="flex-1 bg-paper border border-line rounded-lg px-3 py-2 text-sm text-ink placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-brand disabled:opacity-50"
         />
         <button
           type="submit"
           disabled={loading || !input.trim()}
-          className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-medium rounded-lg px-4 text-sm transition"
+          className="bg-brand hover:bg-brand-bright disabled:opacity-50 text-paper font-medium rounded-lg px-4 text-sm transition"
         >
           Ask
         </button>

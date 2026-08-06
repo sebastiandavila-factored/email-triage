@@ -3,6 +3,8 @@ import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth, ApiError } from '../AuthContext'
 import { API_BASE } from '../api'
 import { nextAfterAuth } from '../invite'
+import { AuthLayout } from '../components/ui/AuthLayout'
+import { Button, Field } from '../components/ui/kit'
 
 export function Login() {
   const { login, token } = useAuth()
@@ -31,70 +33,57 @@ export function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-        <h1 className="text-2xl font-semibold text-gray-900 mb-1">Sign in</h1>
-        <p className="text-sm text-gray-500 mb-6">Email Triage — AI support assistant</p>
+    <AuthLayout title="Sign in">
+      {/* Google SSO */}
+      <a
+        href={`${API_BASE}/auth/login`}
+        className="flex items-center justify-center gap-3 w-full border border-line rounded-lg py-2.5 text-sm font-medium text-ink hover:bg-brand-wash hover:border-line-strong transition mb-4"
+      >
+        <GoogleIcon />
+        Continue with Google
+      </a>
 
-        {/* Google SSO */}
-        <a
-          href={`${API_BASE}/auth/login`}
-          className="flex items-center justify-center gap-3 w-full border border-gray-300 rounded-lg py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition mb-4"
-        >
-          <GoogleIcon />
-          Continue with Google
-        </a>
-
-        <div className="relative my-4">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-200" />
-          </div>
-          <div className="relative flex justify-center text-xs text-gray-400 bg-white px-2">or</div>
+      <div className="relative my-4">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-line" />
         </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="you@company.com"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="••••••••"
-            />
-          </div>
-
-          {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-medium rounded-lg py-2.5 text-sm transition"
-          >
-            {loading ? 'Signing in…' : 'Sign in'}
-          </button>
-        </form>
-
-        <p className="text-center text-sm text-gray-500 mt-6">
-          No account?{' '}
-          <Link to="/signup" className="text-indigo-600 hover:underline font-medium">
-            Sign up
-          </Link>
-        </p>
+        <div className="relative flex justify-center text-xs text-faint bg-paper px-2">or</div>
       </div>
-    </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Field
+          label="Email"
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@company.com"
+        />
+        <Field
+          label="Password"
+          type="password"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="••••••••"
+        />
+
+        {error && (
+          <p className="text-sm text-crit border border-line rounded-lg px-3 py-2">{error}</p>
+        )}
+
+        <Button type="submit" disabled={loading} className="w-full">
+          {loading ? 'Signing in…' : 'Sign in'}
+        </Button>
+      </form>
+
+      <p className="text-center text-sm text-muted mt-6">
+        No account?{' '}
+        <Link to="/signup" className="text-brand hover:underline font-medium">
+          Sign up
+        </Link>
+      </p>
+    </AuthLayout>
   )
 }
 

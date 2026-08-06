@@ -4,12 +4,12 @@ import { useAuth, ApiError } from '../AuthContext'
 import { api } from '../api'
 import type { Member, Invitation } from '../api'
 import { can } from '../rbac'
-import { WorkspaceSwitcher } from '../components/WorkspaceSwitcher'
+import { AppShell } from '../components/ui/AppShell'
 
 const ROLES = ['member', 'admin', 'owner']
 
 export function Workspace() {
-  const { token, user, activeWorkspace, refreshWorkspaces, logout } = useAuth()
+  const { token, user, activeWorkspace, refreshWorkspaces } = useAuth()
   const navigate = useNavigate()
   const [members, setMembers] = useState<Member[]>([])
   const [invites, setInvites] = useState<Invitation[]>([])
@@ -120,53 +120,37 @@ export function Workspace() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
-        <span className="font-semibold text-gray-900">Email Triage</span>
-        <div className="flex items-center gap-4 text-sm">
-          <WorkspaceSwitcher />
-          <Link to="/dashboard" className="text-gray-600 hover:text-gray-900">
-            Dashboard
-          </Link>
-          <Link to="/studio" className="text-gray-600 hover:text-gray-900">
-            Studio
-          </Link>
-          <button onClick={logout} className="text-gray-600 hover:text-gray-900">
-            Logout
-          </button>
-        </div>
-      </nav>
-
+    <AppShell>
       <div className="max-w-3xl mx-auto p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-gray-900">{activeWorkspace?.name}</h1>
+          <h1 className="text-2xl font-semibold text-ink">{activeWorkspace?.name}</h1>
           <Link
             to="/workspace/new"
-            className="text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-3 py-1.5"
+            className="text-sm bg-brand hover:bg-brand-bright text-paper rounded-lg px-3 py-1.5"
           >
             + New team
           </Link>
         </div>
 
-        {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+        {error && <p className="text-sm text-crit border border-line rounded-lg px-3 py-2">{error}</p>}
 
         {/* Members */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6">
-          <h2 className="text-base font-semibold text-gray-900 mb-4">Members</h2>
+        <div className="bg-paper rounded-2xl border border-line p-6">
+          <h2 className="text-base font-semibold text-ink mb-4">Members</h2>
           <table className="w-full text-sm">
             <tbody>
               {members.map((m) => (
-                <tr key={m.user_id} className="border-t border-gray-100">
+                <tr key={m.user_id} className="border-t border-line">
                   <td className="py-2">
-                    <div className="text-gray-900">{m.display_name}</div>
-                    <div className="text-gray-400 text-xs">{m.email}</div>
+                    <div className="text-ink">{m.display_name}</div>
+                    <div className="text-faint text-xs">{m.email}</div>
                   </td>
                   <td className="py-2 text-right">
                     {manage ? (
                       <select
                         value={m.role}
                         onChange={(e) => onChangeRole(m.user_id, e.target.value)}
-                        className="border border-gray-300 rounded px-2 py-1 text-xs"
+                        className="border border-line rounded px-2 py-1 text-xs"
                       >
                         {ROLES.map((r) => (
                           <option key={r} value={r}>
@@ -175,14 +159,14 @@ export function Workspace() {
                         ))}
                       </select>
                     ) : (
-                      <span className="text-gray-600">{m.role}</span>
+                      <span className="text-muted">{m.role}</span>
                     )}
                   </td>
                   <td className="py-2 text-right">
                     {(manage || m.user_id === user?.user_id) && (
                       <button
                         onClick={() => onRemove(m.user_id)}
-                        className="text-xs text-red-600 hover:underline"
+                        className="text-xs text-crit hover:underline"
                       >
                         {m.user_id === user?.user_id ? 'Leave' : 'Remove'}
                       </button>
@@ -196,8 +180,8 @@ export function Workspace() {
 
         {/* Invitations */}
         {manage && (
-          <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
-            <h2 className="text-base font-semibold text-gray-900">Invite a member</h2>
+          <div className="bg-paper rounded-2xl border border-line p-6 space-y-4">
+            <h2 className="text-base font-semibold text-ink">Invite a member</h2>
             <form onSubmit={onInvite} className="flex gap-2">
               <input
                 type="email"
@@ -205,17 +189,17 @@ export function Workspace() {
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
                 placeholder="person@company.com"
-                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                className="flex-1 border border-line rounded-lg px-3 py-2 text-sm"
               />
               <select
                 value={inviteRole}
                 onChange={(e) => setInviteRole(e.target.value)}
-                className="border border-gray-300 rounded-lg px-2 text-sm"
+                className="border border-line rounded-lg px-2 text-sm"
               >
                 <option value="member">member</option>
                 <option value="admin">admin</option>
               </select>
-              <button className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-4 text-sm">
+              <button className="bg-brand hover:bg-brand-bright text-paper rounded-lg px-4 text-sm">
                 Invite
               </button>
             </form>
@@ -228,7 +212,7 @@ export function Workspace() {
                 <code className="text-xs text-amber-900 break-all">{inviteLink}</code>
                 <button
                   onClick={() => navigator.clipboard.writeText(inviteLink)}
-                  className="ml-2 text-xs text-indigo-600 hover:underline"
+                  className="ml-2 text-xs text-brand hover:underline"
                 >
                   Copy
                 </button>
@@ -237,16 +221,16 @@ export function Workspace() {
 
             {invites.length > 0 && (
               <div>
-                <p className="text-xs font-medium text-gray-500 mb-2">Pending invitations</p>
+                <p className="text-xs font-medium text-muted mb-2">Pending invitations</p>
                 <ul className="space-y-1">
                   {invites.map((inv) => (
                     <li key={inv.id} className="flex justify-between text-sm">
-                      <span className="text-gray-700">
+                      <span className="text-ink-soft">
                         {inv.email} · {inv.role}
                       </span>
                       <button
                         onClick={() => onRevoke(inv.id)}
-                        className="text-xs text-red-600 hover:underline"
+                        className="text-xs text-crit hover:underline"
                       >
                         Revoke
                       </button>
@@ -261,12 +245,12 @@ export function Workspace() {
         {canDelete && (
           <button
             onClick={onDeleteWorkspace}
-            className="text-sm text-red-600 border border-red-200 rounded-lg px-3 py-2 hover:bg-red-50"
+            className="text-sm text-crit border border-line rounded-lg px-3 py-2 hover:bg-brand-wash"
           >
             Delete this workspace
           </button>
         )}
       </div>
-    </div>
+    </AppShell>
   )
 }

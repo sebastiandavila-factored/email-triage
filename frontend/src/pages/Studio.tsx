@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useAuth, ApiError } from '../AuthContext'
 import { api } from '../api'
 import type { Category, PromptDraft, PromptPreview, PromptVersion, TriageExample } from '../api'
 import { can } from '../rbac'
-import { WorkspaceSwitcher } from '../components/WorkspaceSwitcher'
+import { AppShell } from '../components/ui/AppShell'
 
 const EMPTY_DRAFT: PromptDraft = { role: null, task: null, guardrails: null, tone: null }
 
 export function Studio() {
-  const { token, activeWorkspace, logout } = useAuth()
+  const { token, activeWorkspace } = useAuth()
   const tid = activeWorkspace?.id
   const canConfigure = can(activeWorkspace?.role, 'triage:configure')
   const canPublish = can(activeWorkspace?.role, 'prompt:publish')
@@ -197,32 +196,16 @@ export function Studio() {
     }
   }
 
-  const card = 'bg-white rounded-2xl border border-gray-200 p-6 space-y-4'
-  const input = 'border border-gray-300 rounded-lg px-3 py-2 text-sm w-full'
-  const btn = 'bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-4 py-2 text-sm'
+  const card = 'bg-paper rounded-2xl border border-line p-6 space-y-4'
+  const input = 'border border-line rounded-lg px-3 py-2 text-sm w-full'
+  const btn = 'bg-brand hover:bg-brand-bright text-paper rounded-lg px-4 py-2 text-sm'
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
-        <span className="font-semibold text-gray-900">Email Triage</span>
-        <div className="flex items-center gap-4 text-sm">
-          <WorkspaceSwitcher />
-          <Link to="/dashboard" className="text-gray-600 hover:text-gray-900">
-            Dashboard
-          </Link>
-          <Link to="/workspace" className="text-gray-600 hover:text-gray-900">
-            Workspace
-          </Link>
-          <button onClick={logout} className="text-gray-600 hover:text-gray-900">
-            Logout
-          </button>
-        </div>
-      </nav>
-
+    <AppShell>
       <div className="max-w-3xl mx-auto p-6 space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Triage Studio</h1>
-          <p className="text-sm text-gray-500">
+          <h1 className="text-2xl font-semibold text-ink">Triage Studio</h1>
+          <p className="text-sm text-muted">
             Configure this workspace's categories, few-shot examples and prompt.
           </p>
         </div>
@@ -234,17 +217,17 @@ export function Studio() {
           </p>
         )}
 
-        {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+        {error && <p className="text-sm text-crit border border-line rounded-lg px-3 py-2">{error}</p>}
 
         {/* Categories */}
         <div className={card}>
-          <h2 className="text-base font-semibold text-gray-900">Categories</h2>
+          <h2 className="text-base font-semibold text-ink">Categories</h2>
           <table className="w-full text-sm">
             <tbody>
               {categories.map((c) => (
-                <tr key={c.id} className="border-t border-gray-100 align-top">
+                <tr key={c.id} className="border-t border-line align-top">
                   <td className="py-2 pr-2 w-28">
-                    <code className="text-xs text-gray-500">{c.slug}</code>
+                    <code className="text-xs text-muted">{c.slug}</code>
                   </td>
                   <td className="py-2 pr-2">
                     <input
@@ -253,7 +236,7 @@ export function Studio() {
                       onBlur={(e) =>
                         e.target.value !== c.name && onPatchCategory(c.id, { name: e.target.value })
                       }
-                      className="border border-gray-200 rounded px-2 py-1 text-sm w-full mb-1"
+                      className="border border-line rounded px-2 py-1 text-sm w-full mb-1"
                     />
                     <input
                       defaultValue={c.description}
@@ -262,11 +245,11 @@ export function Studio() {
                         e.target.value !== c.description &&
                         onPatchCategory(c.id, { description: e.target.value })
                       }
-                      className="border border-gray-200 rounded px-2 py-1 text-xs w-full text-gray-600"
+                      className="border border-line rounded px-2 py-1 text-xs w-full text-muted"
                     />
                   </td>
                   <td className="py-2 text-right whitespace-nowrap">
-                    <label className="text-xs text-gray-500 mr-2">
+                    <label className="text-xs text-muted mr-2">
                       <input
                         type="checkbox"
                         checked={c.is_active}
@@ -279,7 +262,7 @@ export function Studio() {
                     {canConfigure && (
                       <button
                         onClick={() => onDeleteCategory(c.id)}
-                        className="text-xs text-red-600 hover:underline"
+                        className="text-xs text-crit hover:underline"
                       >
                         Delete
                       </button>
@@ -297,21 +280,21 @@ export function Studio() {
                 value={slug}
                 onChange={(e) => setSlug(e.target.value)}
                 placeholder="slug"
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-32"
+                className="border border-line rounded-lg px-3 py-2 text-sm w-32"
               />
               <input
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Name"
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-40"
+                className="border border-line rounded-lg px-3 py-2 text-sm w-40"
               />
               <input
                 required
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Description"
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm flex-1 min-w-40"
+                className="border border-line rounded-lg px-3 py-2 text-sm flex-1 min-w-40"
               />
               <button className={btn}>Add</button>
             </form>
@@ -320,11 +303,11 @@ export function Studio() {
 
         {/* Examples */}
         <div className={card}>
-          <h2 className="text-base font-semibold text-gray-900">Few-shot examples</h2>
+          <h2 className="text-base font-semibold text-ink">Few-shot examples</h2>
           <select
             value={selectedCat ?? ''}
             onChange={(e) => e.target.value && loadExamples(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+            className="border border-line rounded-lg px-3 py-2 text-sm"
           >
             <option value="">Select a category…</option>
             {categories.map((c) => (
@@ -338,27 +321,27 @@ export function Studio() {
             <>
               <ul className="space-y-2">
                 {examples.map((ex) => (
-                  <li key={ex.id} className="border border-gray-100 rounded-lg p-3 text-sm">
+                  <li key={ex.id} className="border border-line rounded-lg p-3 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-xs font-medium text-gray-500">{ex.kind}</span>
+                      <span className="text-xs font-medium text-muted">{ex.kind}</span>
                       {canConfigure && (
                         <button
                           onClick={() => onDeleteExample(ex.id)}
-                          className="text-xs text-red-600 hover:underline"
+                          className="text-xs text-crit hover:underline"
                         >
                           Delete
                         </button>
                       )}
                     </div>
-                    <div className="text-gray-900">{ex.subject}</div>
-                    <div className="text-gray-500 text-xs">{ex.body}</div>
+                    <div className="text-ink">{ex.subject}</div>
+                    <div className="text-muted text-xs">{ex.body}</div>
                     {ex.expected_reply && (
-                      <div className="text-gray-400 text-xs mt-1">↳ {ex.expected_reply}</div>
+                      <div className="text-faint text-xs mt-1">↳ {ex.expected_reply}</div>
                     )}
                   </li>
                 ))}
                 {examples.length === 0 && (
-                  <li className="text-sm text-gray-400">No examples yet.</li>
+                  <li className="text-sm text-faint">No examples yet.</li>
                 )}
               </ul>
 
@@ -368,7 +351,7 @@ export function Studio() {
                     <select
                       value={exKind}
                       onChange={(e) => setExKind(e.target.value)}
-                      className="border border-gray-300 rounded-lg px-2 text-sm"
+                      className="border border-line rounded-lg px-2 text-sm"
                     >
                       <option value="positive">positive</option>
                       <option value="negative">negative</option>
@@ -404,11 +387,11 @@ export function Studio() {
 
         {/* Prompt draft + preview */}
         <div className={card}>
-          <h2 className="text-base font-semibold text-gray-900">Prompt template</h2>
-          <p className="text-xs text-gray-500">Leave a block empty to use the built-in default.</p>
+          <h2 className="text-base font-semibold text-ink">Prompt template</h2>
+          <p className="text-xs text-muted">Leave a block empty to use the built-in default.</p>
           {(['role', 'task', 'guardrails', 'tone'] as const).map((field) => (
             <div key={field}>
-              <label className="text-xs font-medium text-gray-500 capitalize">{field}</label>
+              <label className="text-xs font-medium text-muted capitalize">{field}</label>
               <textarea
                 value={draft[field] ?? ''}
                 disabled={!canConfigure}
@@ -426,17 +409,17 @@ export function Studio() {
             )}
             <button
               onClick={onPreview}
-              className="border border-gray-300 rounded-lg px-4 py-2 text-sm hover:bg-gray-50"
+              className="border border-line rounded-lg px-4 py-2 text-sm hover:bg-ground"
             >
               Preview compiled prompt
             </button>
           </div>
           {preview && (
             <div>
-              <p className="text-xs text-gray-500 mb-1">
+              <p className="text-xs text-muted mb-1">
                 allowed slugs: {preview.allowed_slugs.join(', ')}
               </p>
-              <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 text-xs overflow-x-auto whitespace-pre-wrap">
+              <pre className="bg-[#0b1414] text-[#c3d3d1] rounded-lg p-4 text-xs overflow-x-auto whitespace-pre-wrap">
                 {preview.prompt}
               </pre>
             </div>
@@ -446,7 +429,7 @@ export function Studio() {
         {/* Versions */}
         <div className={card}>
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-gray-900">Published versions</h2>
+            <h2 className="text-base font-semibold text-ink">Published versions</h2>
             {canPublish && (
               <button onClick={onPublish} className={btn}>
                 Publish current draft
@@ -454,23 +437,23 @@ export function Studio() {
             )}
           </div>
           {versions.length === 0 ? (
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-faint">
               Not published yet — <code>/triage</code> compiles the draft live.
             </p>
           ) : (
             <table className="w-full text-sm">
               <tbody>
                 {versions.map((v) => (
-                  <tr key={v.id} className="border-t border-gray-100">
+                  <tr key={v.id} className="border-t border-line">
                     <td className="py-2">
                       v{v.version}
                       {v.is_active && (
-                        <span className="ml-2 text-xs text-green-700 bg-green-50 rounded px-1.5 py-0.5">
+                        <span className="ml-2 text-xs text-brand bg-brand-wash rounded px-1.5 py-0.5">
                           active
                         </span>
                       )}
                     </td>
-                    <td className="py-2 text-xs text-gray-500">
+                    <td className="py-2 text-xs text-muted">
                       {v.accuracy != null ? `acc ${v.accuracy.toFixed(2)}` : '—'}
                       {v.macro_f1 != null ? ` · f1 ${v.macro_f1.toFixed(2)}` : ''}
                     </td>
@@ -478,7 +461,7 @@ export function Studio() {
                       {canPublish && !v.is_active && (
                         <button
                           onClick={() => onActivate(v.version)}
-                          className="text-xs text-indigo-600 hover:underline"
+                          className="text-xs text-brand hover:underline"
                         >
                           Activate
                         </button>
@@ -491,6 +474,6 @@ export function Studio() {
           )}
         </div>
       </div>
-    </div>
+    </AppShell>
   )
 }

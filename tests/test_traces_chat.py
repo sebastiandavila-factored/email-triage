@@ -99,6 +99,30 @@ async def test_owns_trace_false_when_no_rows() -> None:
     assert await svc.owns_trace(_TENANT, _TRACE) is False
 
 
+def test_tools_take_a_parameter_for_groq() -> None:
+    # Regression: Groq sends `null` (not `{}`) as arguments for a zero-parameter tool, which
+    # fails pydantic-ai's object-schema validation and exhausts retries. Every tool must take
+    # at least one parameter beyond `ctx`.
+    import inspect
+
+    from email_triage.services.trace_agent import get_trace_spans, search_recent_org_traces
+
+    for fn in (get_trace_spans, search_recent_org_traces):
+        params = [p for p in inspect.signature(fn).parameters if p != "ctx"]
+        assert params, f"{fn.__name__} must take >=1 param (Groq null-args quirk)"
+
+
+async def test_agent_failure_becomes_logfire_query_error() -> None:
+    # A model/tool blow-up must surface as our actionable error (→ 503), never a raw 500.
+    class BoomAgent:
+        async def run(self, *a: Any, **k: Any) -> Any:
+            raise ValueError("model exploded")
+
+    svc = TraceChatService(BoomAgent(), FakeLogfireClient())  # type: ignore[arg-type]
+    with pytest.raises(LogfireQueryError):
+        await svc.chat(_TENANT, _TRACE, "hi", [])
+
+
 # ── Endpoint RBAC + guard ───────────────────────────────────────────────────────
 
 

@@ -1,22 +1,14 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useAuth, ApiError } from '../AuthContext'
 import { api } from '../api'
 import type { TriageResponse } from '../api'
-import { WorkspaceSwitcher } from '../components/WorkspaceSwitcher'
 import { TraceChat } from '../components/TraceChat'
+import { AppShell } from '../components/ui/AppShell'
+import { Button, Card, Field, SectionHead, Tag } from '../components/ui/kit'
 import { can } from '../rbac'
 
-const CATEGORY_COLORS: Record<string, string> = {
-  status: 'bg-blue-100 text-blue-800',
-  refunds: 'bg-red-100 text-red-800',
-  availability: 'bg-green-100 text-green-800',
-  shipments: 'bg-orange-100 text-orange-800',
-  prices: 'bg-purple-100 text-purple-800',
-}
-
 export function Dashboard() {
-  const { user, token, apiKey, logout } = useAuth()
+  const { user, token, apiKey } = useAuth()
   const [subject, setSubject] = useState('')
   const [sender, setSender] = useState('')
   const [body, setBody] = useState('')
@@ -47,119 +39,80 @@ export function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Navbar */}
-      <nav className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
-        <span className="font-semibold text-gray-900">Email Triage</span>
-        <div className="flex items-center gap-4 text-sm">
-          <WorkspaceSwitcher />
-          <Link to="/compare" className="text-gray-600 hover:text-gray-900">
-            Compare
-          </Link>
-          <Link to="/workspace" className="text-gray-600 hover:text-gray-900">
-            Workspace
-          </Link>
-          <Link to="/studio" className="text-gray-600 hover:text-gray-900">
-            Studio
-          </Link>
-          <Link to="/settings" className="text-gray-600 hover:text-gray-900">
-            Settings
-          </Link>
-          <button onClick={logout} className="text-gray-600 hover:text-gray-900">
-            Logout
-          </button>
-        </div>
-      </nav>
-
+    <AppShell>
       <div className="max-w-2xl mx-auto p-6 space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">
-            Hello, {user?.display_name} 👋
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Workspace: <span className="font-medium">{user?.tenant_name}</span> · role:{' '}
-            <span className="font-medium">{user?.role}</span>
+          <h1 className="text-2xl font-semibold text-ink">Hello, {user?.display_name} 👋</h1>
+          <p className="text-sm text-muted mt-1">
+            Workspace: <span className="font-medium text-ink-soft">{user?.tenant_name}</span> ·
+            role: <span className="font-medium text-ink-soft">{user?.role}</span>
           </p>
         </div>
 
         {/* Triage form */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6">
-          <h2 className="text-base font-semibold text-gray-900 mb-4">Triage an email</h2>
+        <Card className="p-6">
+          <SectionHead kicker="Classify + draft" title="Triage an email" className="mb-4" />
           <form onSubmit={handleTriage} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
-                <input
-                  type="text"
-                  required
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="Order status inquiry"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">From</label>
-                <input
-                  type="text"
-                  required
-                  value={sender}
-                  onChange={(e) => setSender(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="customer@example.com"
-                />
-              </div>
+              <Field
+                label="Subject"
+                required
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder="Order status inquiry"
+              />
+              <Field
+                label="From"
+                required
+                value={sender}
+                onChange={(e) => setSender(e.target.value)}
+                placeholder="customer@example.com"
+              />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Body</label>
+            <label className="block">
+              <span className="block text-sm font-medium text-ink-soft mb-1">Body</span>
               <textarea
                 required
                 rows={5}
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                className="w-full bg-paper border border-line rounded-lg px-3 py-2 text-sm text-ink placeholder:text-faint focus:outline-none focus:ring-2 focus:ring-brand resize-none"
                 placeholder="Paste the email body here…"
               />
-            </div>
+            </label>
 
             {error && (
-              <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
+              <p className="text-sm text-crit border border-line rounded-lg px-3 py-2">{error}</p>
             )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-medium rounded-lg py-2.5 text-sm transition"
-            >
+            <Button type="submit" disabled={loading} className="w-full">
               {loading ? 'Analyzing…' : 'Triage email →'}
-            </button>
+            </Button>
           </form>
-        </div>
+        </Card>
 
         {/* Result */}
         {result && (
-          <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-gray-900">Result</h2>
-              <span className="text-xs text-gray-500">
-                Confidence: {(result.confidence * 100).toFixed(0)}%
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span
-                className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide ${CATEGORY_COLORS[result.category] ?? 'bg-gray-100 text-gray-800'}`}
-              >
-                {result.category}
-              </span>
-            </div>
+          <Card className="p-6 space-y-4">
+            <SectionHead
+              kicker="Result"
+              title={<Tag tone="amber">{result.category}</Tag>}
+              actions={
+                <span className="text-xs text-muted">
+                  Confidence: {(result.confidence * 100).toFixed(0)}%
+                </span>
+              }
+            />
             <div>
-              <p className="text-xs font-medium text-gray-500 mb-2">Draft reply</p>
-              <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-700 leading-relaxed">
+              <p className="font-mono text-[11px] uppercase tracking-wide text-faint mb-2">
+                Draft reply
+              </p>
+              <div className="bg-ground rounded-lg p-4 text-sm text-ink-soft leading-relaxed border border-line">
                 {result.draft_reply}
               </div>
               <button
                 onClick={() => navigator.clipboard.writeText(result.draft_reply)}
-                className="mt-2 text-xs text-indigo-600 hover:underline"
+                className="mt-2 text-xs text-brand hover:underline"
               >
                 Copy reply
               </button>
@@ -170,7 +123,7 @@ export function Dashboard() {
               <div>
                 <button
                   onClick={() => setShowTraces((v) => !v)}
-                  className="text-xs text-gray-600 hover:text-gray-900"
+                  className="text-xs text-muted hover:text-ink transition"
                 >
                   {showTraces ? '▾ Hide traces' : '▸ Ver traces'}
                 </button>
@@ -179,9 +132,9 @@ export function Dashboard() {
                 )}
               </div>
             )}
-          </div>
+          </Card>
         )}
       </div>
-    </div>
+    </AppShell>
   )
 }

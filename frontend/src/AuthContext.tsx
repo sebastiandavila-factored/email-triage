@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { api, ApiError } from './api'
+import { api, ApiError, setUnauthorizedHandler } from './api'
 import type { AuthUser, Workspace } from './api'
 
 const TOKEN_KEY = 'access_token'
@@ -63,6 +63,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (window.location.hash.includes('token=')) {
       window.history.replaceState(null, '', window.location.pathname)
     }
+  }, [])
+
+  // Any authenticated request that comes back 401 (expired/invalid session) tears the
+  // session down here → token becomes null → ProtectedRoute redirects to /login. This is
+  // what turns a raw "Invalid or expired token" mid-action into a clean re-login.
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      localStorage.removeItem(TOKEN_KEY)
+      setToken(null)
+      setUser(null)
+    })
+    return () => setUnauthorizedHandler(null)
   }, [])
 
   // Validate stored token on mount. `me` is the source of truth for auth: only

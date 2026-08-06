@@ -1,15 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useAuth, ApiError } from '../AuthContext'
 import { api } from '../api'
 import type { TriageResponse } from '../api'
+import { AppShell } from '../components/ui/AppShell'
 
-const CATEGORY_COLORS: Record<string, string> = {
-  status: 'bg-blue-100 text-blue-800',
-  refunds: 'bg-red-100 text-red-800',
-  availability: 'bg-green-100 text-green-800',
-  shipments: 'bg-orange-100 text-orange-800',
-  prices: 'bg-purple-100 text-purple-800',
+// Per-category accent via the shared --cat-* tokens (theme-aware). Falls back to muted.
+const CATEGORY_VAR: Record<string, string> = {
+  status: '--cat-status',
+  refunds: '--cat-refunds',
+  availability: '--cat-availability',
+  shipments: '--cat-shipments',
+  prices: '--cat-prices',
+}
+function categoryStyle(category: string): React.CSSProperties {
+  return { color: `var(${CATEGORY_VAR[category] ?? '--cat-unknown'})` }
 }
 
 interface Example {
@@ -68,7 +72,8 @@ function CategoryBadge({ category }: { category?: string }) {
   if (!category) return null
   return (
     <span
-      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide ${CATEGORY_COLORS[category] ?? 'bg-gray-100 text-gray-800'}`}
+      style={categoryStyle(category)}
+      className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide bg-ground border border-line"
     >
       {category}
     </span>
@@ -76,7 +81,7 @@ function CategoryBadge({ category }: { category?: string }) {
 }
 
 export function Compare() {
-  const { user, token, apiKey, logout } = useAuth()
+  const { token, apiKey } = useAuth()
   const [subject, setSubject] = useState(EXAMPLES[0].subject)
   const [sender, setSender] = useState(EXAMPLES[0].sender)
   const [body, setBody] = useState(EXAMPLES[0].body)
@@ -174,24 +179,11 @@ export function Compare() {
   const running = sync.status === 'running' || stream.status === 'running'
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
-        <span className="font-semibold text-gray-900">Email Triage</span>
-        <div className="flex items-center gap-4 text-sm">
-          <span className="text-gray-500">{user?.email}</span>
-          <Link to="/dashboard" className="text-gray-600 hover:text-gray-900">
-            Dashboard
-          </Link>
-          <button onClick={logout} className="text-gray-600 hover:text-gray-900">
-            Logout
-          </button>
-        </div>
-      </nav>
-
+    <AppShell>
       <div className="max-w-5xl mx-auto p-6 space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Sync vs. Streaming</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-semibold text-ink">Sync vs. Streaming</h1>
+          <p className="text-sm text-muted mt-1">
             The same request on the left (<code>/triage</code> — you wait for the whole result) and on
             the right (<code>/triage/stream</code> — the category shows instantly and the draft types
             itself out). Watch the TTFT.
@@ -199,16 +191,16 @@ export function Compare() {
         </div>
 
         {/* Shared input */}
-        <form onSubmit={run} className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
+        <form onSubmit={run} className="bg-paper rounded-2xl border border-line p-6 space-y-4">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs text-gray-400">Load example:</span>
+            <span className="text-xs text-faint">Load example:</span>
             {EXAMPLES.map((ex) => (
               <button
                 key={ex.key}
                 type="button"
                 onClick={() => loadExample(ex)}
                 title={ex.hint}
-                className="text-xs border border-gray-300 rounded-full px-3 py-1 text-gray-700 hover:bg-gray-50"
+                className="text-xs border border-line rounded-full px-3 py-1 text-ink-soft hover:bg-ground"
               >
                 {ex.label}
               </button>
@@ -221,7 +213,7 @@ export function Compare() {
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               placeholder="Subject"
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
             />
             <input
               type="text"
@@ -229,7 +221,7 @@ export function Compare() {
               value={sender}
               onChange={(e) => setSender(e.target.value)}
               placeholder="From"
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
             />
           </div>
           <textarea
@@ -238,13 +230,13 @@ export function Compare() {
             value={body}
             onChange={(e) => setBody(e.target.value)}
             placeholder="Email body"
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+            className="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand resize-none"
           />
-          {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+          {error && <p className="text-sm text-crit border border-line rounded-lg px-3 py-2">{error}</p>}
           <button
             type="submit"
             disabled={running}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-medium rounded-lg py-2.5 text-sm transition"
+            className="w-full bg-brand hover:bg-brand-bright disabled:opacity-50 text-paper font-medium rounded-lg py-2.5 text-sm transition"
           >
             {running ? 'Running both…' : 'Run comparison ▶'}
           </button>
@@ -260,13 +252,13 @@ export function Compare() {
               running={sync.status === 'running'}
             />
             {sync.status === 'running' && (
-              <p className="text-sm text-gray-400 animate-pulse mt-3">Waiting for the full response…</p>
+              <p className="text-sm text-faint animate-pulse mt-3">Waiting for the full response…</p>
             )}
-            {sync.status === 'error' && <p className="text-sm text-red-600 mt-3">{sync.error}</p>}
+            {sync.status === 'error' && <p className="text-sm text-crit mt-3">{sync.error}</p>}
             {sync.status === 'done' && sync.result && (
               <div className="mt-3 space-y-3">
                 <CategoryBadge category={sync.result.category} />
-                <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                <div className="bg-ground rounded-lg p-4 text-sm text-ink-soft leading-relaxed whitespace-pre-wrap">
                   {sync.result.draft_reply}
                 </div>
               </div>
@@ -294,18 +286,18 @@ export function Compare() {
                 running={stream.status === 'running'}
               />
             </div>
-            {stream.status === 'error' && <p className="text-sm text-red-600 mt-3">{stream.error}</p>}
+            {stream.status === 'error' && <p className="text-sm text-crit mt-3">{stream.error}</p>}
             {stream.status !== 'idle' && stream.status !== 'error' && (
               <div className="mt-3 space-y-3">
                 {stream.category ? (
                   <CategoryBadge category={stream.category} />
                 ) : (
-                  <span className="text-xs text-gray-400">waiting for category…</span>
+                  <span className="text-xs text-faint">waiting for category…</span>
                 )}
-                <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap min-h-[3rem]">
+                <div className="bg-ground rounded-lg p-4 text-sm text-ink-soft leading-relaxed whitespace-pre-wrap min-h-[3rem]">
                   {stream.draft}
                   {stream.status === 'running' && (
-                    <span className="inline-block w-1.5 h-4 bg-indigo-500 ml-0.5 align-middle animate-pulse" />
+                    <span className="inline-block w-1.5 h-4 bg-brand ml-0.5 align-middle animate-pulse" />
                   )}
                 </div>
               </div>
@@ -313,7 +305,7 @@ export function Compare() {
           </Panel>
         </div>
       </div>
-    </div>
+    </AppShell>
   )
 }
 
@@ -327,9 +319,9 @@ function Panel({
   children: React.ReactNode
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 p-6">
-      <h2 className="text-base font-semibold text-gray-900">{title}</h2>
-      <p className="text-xs text-gray-400 mb-4">{subtitle}</p>
+    <div className="bg-paper rounded-2xl border border-line p-6">
+      <h2 className="text-base font-semibold text-ink">{title}</h2>
+      <p className="text-xs text-faint mb-4">{subtitle}</p>
       {children}
     </div>
   )
@@ -348,9 +340,9 @@ function Clock({
 }) {
   return (
     <div>
-      <div className="text-xs text-gray-400">{label}</div>
+      <div className="text-xs text-faint">{label}</div>
       <div
-        className={`font-mono text-lg ${highlight ? 'text-indigo-600' : 'text-gray-900'} ${running ? 'animate-pulse' : ''}`}
+        className={`font-mono text-lg ${highlight ? 'text-brand' : 'text-ink'} ${running ? 'animate-pulse' : ''}`}
       >
         {ms === undefined ? '—' : `${ms} ms`}
       </div>

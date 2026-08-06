@@ -11,6 +11,7 @@ export const LANDING_BODY = `
         <a href="#prompt" class="hide-sm">The prompt</a>
         <a href="#publish" class="hide-sm">Publishing</a>
         <a href="#operate" class="hide-sm">Operate</a>
+        <a href="#debug" class="hide-sm">Debug</a>
         <button class="theme-btn" id="themeBtn" aria-label="Toggle color theme">&#9680; Theme</button>
         <a href="/login" class="btn btn-primary nav-login">Log in &rarr;</a>
       </div>
@@ -260,6 +261,7 @@ language. If none fits or you're unsure, use "unknown".</span>
             <tr><td>Edit categories &amp; examples</td><td class="scope">triage:configure</td><td class="yes">&#10003;</td><td class="yes">&#10003;</td><td class="no">&mdash;</td></tr>
             <tr><td>Publish &amp; roll back prompts</td><td class="scope">prompt:publish</td><td class="yes">&#10003;</td><td class="no">&mdash;</td><td class="no">&mdash;</td></tr>
             <tr><td>Manage members</td><td class="scope">workspace:manage</td><td class="yes">&#10003;</td><td class="yes">&#10003;</td><td class="no">&mdash;</td></tr>
+            <tr><td>View &amp; debug traces</td><td class="scope">traces:read</td><td class="yes">&#10003;</td><td class="yes">&#10003;</td><td class="no">&mdash;</td></tr>
           </tbody>
         </table>
       </div>
@@ -293,6 +295,37 @@ language. If none fits or you're unsure, use "unknown".</span>
             <li><span class="m">tool</span> list_categories</li>
             <li><span class="m">tool</span> add_example</li>
             <li><span class="m">tool</span> preview_prompt</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Debug (trace-debug chat) ────────────────────────────────────────── -->
+  <section id="debug">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <span class="kicker-num">08 &mdash; DEBUG IT</span>
+        <h2>Ask why any triage did what it did.</h2>
+        <p>Every classification leaves a full trace in Logfire. Open a chat right next to the result and ask, in plain language, what happened &mdash; latency, category, confidence, the model call &mdash; answered from that request's real spans, and only ever your organization's.</p>
+      </div>
+      <div class="op-grid">
+        <div class="op reveal">
+          <h3><span class="tag-mark">CHAT</span> Debug a trace</h3>
+          <p>A &ldquo;Ver traces&rdquo; panel on the result. Natural-language questions, answered from the spans of that exact triage.</p>
+          <ul>
+            <li><span class="m">ask</span> Why was this slow?</li>
+            <li><span class="m">ask</span> What category &amp; confidence?</li>
+            <li><span class="m">ask</span> Did the model call error?</li>
+          </ul>
+        </div>
+        <div class="op reveal">
+          <h3><span class="tag-mark">SAFE</span> Your org only</h3>
+          <p>An agent reads Logfire through curated, tenant-scoped queries &mdash; it can't reach another workspace's traces, by construction.</p>
+          <ul>
+            <li><span class="m">scope</span> traces:read &mdash; owner, admin</li>
+            <li><span class="m">bound</span> tenant_id on every query</li>
+            <li><span class="m">bound</span> anchored to one trace_id</li>
           </ul>
         </div>
       </div>

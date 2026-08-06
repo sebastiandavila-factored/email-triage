@@ -11,7 +11,7 @@ Security — the whole point of this module:
   a query that omits the tenant predicate.
 
 Logfire access is isolated behind the ``LogfireTraceClient`` protocol so tests inject a fake
-(no network) and the version-sensitive MCP client stays in one place — see ``LogfireMCPClient``.
+(no network) and the query client stays in one place — see ``LogfireQueryApiClient``.
 """
 
 from __future__ import annotations
@@ -121,14 +121,23 @@ TRACE_SYSTEM_PROMPT = (
 )
 
 
-async def get_trace_spans(ctx: RunContext[TraceDeps]) -> list[dict[str, Any]]:
+async def get_trace_spans(
+    ctx: RunContext[TraceDeps], limit: int = _MAX_ROWS
+) -> list[dict[str, Any]]:
     """Return the spans of the triage request under investigation.
 
     Each span has its name, level, start time, duration and attributes (including the
     triage category/confidence and any error kind). This is the primary evidence.
+
+    Args:
+        limit: Max spans to return (defaults to all of them; the trace is small).
     """
+    # NB: this tool intentionally carries a parameter. Groq sends `null` (not `{}`) as the
+    # arguments for a zero-parameter tool, which fails pydantic-ai's object-schema validation
+    # and exhausts retries — an argument gives the model a proper object to send.
     d = ctx.deps
-    return await d.client.query(trace_spans_sql(d.tenant_id, d.trace_id))
+    limit = max(1, min(int(limit), _MAX_ROWS))
+    return await d.client.query(trace_spans_sql(d.tenant_id, d.trace_id, limit=limit))
 
 
 async def search_recent_org_traces(
@@ -187,7 +196,14 @@ class TraceChatService:
         deps = TraceDeps(
             client=self._client, tenant_id=tenant_id, trace_id=ensure_trace_id(trace_id)
         )
-        result = await self._agent.run(_compose_prompt(message, history), deps=deps)
+        try:
+            result = await self._agent.run(_compose_prompt(message, history), deps=deps)
+        except LogfireQueryError:
+            raise  # already actionable (bad query / Logfire down) — let the router map it
+        except Exception as exc:  # noqa: BLE001 — model/tool/transport failure → graceful 503
+            raise LogfireQueryError(
+                "The trace assistant could not complete the analysis; please retry."
+            ) from exc
         return result.output
 
 

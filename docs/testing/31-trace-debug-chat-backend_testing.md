@@ -57,6 +57,15 @@ con el contenido esperado; el servicio recibió el `tenant_id` de la membership 
 **Action**: `POST` con `trace_id` no-hex; `owns_trace` lanza `LogfireQueryError("invalid
 trace id …")`. **Expected**: 422.
 
+### TC-12: las tools tienen parámetro (quirk de Groq)
+**Action**: introspección de `get_trace_spans` / `search_recent_org_traces`.
+**Expected**: ambas tienen ≥1 parámetro además de `ctx`. Groq manda `null` (no `{}`) a una tool
+sin parámetros → falla la validación de schema y agota reintentos; un parámetro lo evita.
+
+### TC-13: fallo del agente → error manejado
+**Action**: agente cuyo `run` lanza. **Expected**: `chat()` lo traduce a `LogfireQueryError`
+(→ el endpoint responde 503, nunca un 500 crudo).
+
 ## Manual end-to-end
 
 1. Correr una triage: `POST /triage` (con API key) → la respuesta trae `trace_id` no vacío.

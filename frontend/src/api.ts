@@ -4,6 +4,15 @@
 // in at build time, so the SPA calls the Render API cross-origin (needs CORS).
 export const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
+// Called when an authenticated request returns 401 (expired/invalid session) so the app
+// can drop the dead token and bounce to /login, instead of surfacing a raw "Invalid or
+// expired token" mid-action. Registered by AuthContext.
+let onUnauthorized: (() => void) | null = null
+export function setUnauthorizedHandler(fn: (() => void) | null): void {
+  onUnauthorized = fn
+}
+const SESSION_EXPIRED_MSG = 'Your session expired. Please log in again.'
+
 export interface AuthUser {
   user_id: string
   email: string
@@ -183,6 +192,11 @@ async function request<T>(
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers })
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }))
+    // Expired/invalid session on an authenticated call → drop the token and redirect.
+    if (res.status === 401 && token) {
+      onUnauthorized?.()
+      throw new ApiError(401, SESSION_EXPIRED_MSG)
+    }
     throw new ApiError(res.status, formatDetail(body.detail) ?? res.statusText)
   }
   if (res.status === 204) return undefined as T
@@ -269,6 +283,11 @@ export const api = {
     }
     if (!res.ok || !res.body) {
       const body = await res.json().catch(() => ({ detail: res.statusText }))
+      if (res.status === 401) {
+        onUnauthorized?.()
+        cb.onError?.(new ApiError(401, SESSION_EXPIRED_MSG))
+        return
+      }
       cb.onError?.(new ApiError(res.status, formatDetail(body.detail) ?? res.statusText))
       return
     }

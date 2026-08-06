@@ -55,16 +55,16 @@ export function AcceptInvite() {
   }, [token, isLoading, inviteToken, refreshWorkspaces, setActiveWorkspace, navigate])
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center">
-        <h1 className="text-xl font-semibold text-gray-900 mb-2">Workspace invitation</h1>
-        <p className={status === 'error' ? 'text-sm text-red-600' : 'text-sm text-gray-600'}>
+    <div className="min-h-screen bg-ground flex items-center justify-center p-4">
+      <div className="w-full max-w-sm bg-paper rounded-2xl shadow-sm border border-line p-8 text-center">
+        <h1 className="text-xl font-semibold text-ink mb-2">Workspace invitation</h1>
+        <p className={status === 'error' ? 'text-sm text-crit' : 'text-sm text-muted'}>
           {message}
         </p>
         {status === 'error' && (
           <button
             onClick={() => navigate('/dashboard')}
-            className="mt-4 text-sm text-indigo-600 hover:underline"
+            className="mt-4 text-sm text-brand hover:underline"
           >
             Go to dashboard
           </button>
