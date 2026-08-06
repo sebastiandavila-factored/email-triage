@@ -15,6 +15,14 @@ class Settings(BaseSettings):
     prompt_label: str = "production"
     logfire_sample_rate: float = 1.0
     logfire_environment: str = "dev"
+    # Read token (scope `project:read`) for the trace-debug chat (Plan 31). Lives
+    # ONLY in the backend: it is project-wide (sees every tenant's traces), so it must
+    # never reach the client — per-org isolation is enforced by our SQL, not the token.
+    # Absent → the chat endpoint returns 503 (feature not configured).
+    logfire_read_token: str | None = None
+    # Optional override for the Logfire read API base URL; None → derived from the read
+    # token's region (US/EU) automatically, so it normally needs no configuration.
+    logfire_read_base_url: str | None = None
 
     # Online evals on live /triage. Off by default; opt-in per env. sample_rate keeps the
     # critical path cheap (evaluators dispatch asynchronously after the run, non-blocking).

@@ -46,6 +46,18 @@ export interface TriageResponse {
   category: string
   draft_reply: string
   confidence: number
+  trace_id?: string | null
+}
+
+// ── Trace-debug chat (Plan 31/32) ─────────────────────────────────────────────
+
+export interface TraceChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface TraceChatResponse {
+  reply: string
 }
 
 export interface TriageStreamCallbacks {
@@ -214,6 +226,22 @@ export const api = {
 
   rotateKey(token: string): Promise<RotateKeyResponse> {
     return request('/auth/rotate-key', { method: 'POST' }, token)
+  },
+
+  // Ask the trace-debug agent about one triage's traces (owner/admin only). The
+  // backend derives the tenant from the session and scopes every Logfire query to it.
+  traceChat(
+    token: string,
+    tid: string,
+    trace_id: string,
+    message: string,
+    history: TraceChatMessage[],
+  ): Promise<TraceChatResponse> {
+    return request(
+      `/workspaces/${tid}/traces/chat`,
+      { method: 'POST', body: JSON.stringify({ trace_id, message, history }) },
+      token,
+    )
   },
 
   // SSE streaming triage. EventSource can't do POST + custom headers, so we

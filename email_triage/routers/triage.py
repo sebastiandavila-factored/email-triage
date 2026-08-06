@@ -67,7 +67,10 @@ async def triage(
         REQUEST_BODY_CHARS.record(len(req.body))
         t_llm = time.perf_counter()
         try:
-            result = await llm.triage(req)
+            # Baggage tags the child spans (pydantic-ai / httpx) with tenant_id too, so a
+            # per-org trace query (Plan 31) sees the whole tree, not just this root (Plan 33).
+            with logfire.set_baggage(tenant_id=str(tenant.tenant_id)):
+                result = await llm.triage(req)
         except (LLMError, httpx.HTTPStatusError, httpx.RequestError) as exc:
             ERRORS_TOTAL.add(1, {"endpoint": "sync", "status_code": "503"})
             span.set_attribute("error.kind", "llm_unavailable")
@@ -79,6 +82,11 @@ async def triage(
         RESPONSE_DRAFT_CHARS.record(len(result.draft_reply))
         span.set_attribute("triage.result.category", str(result.category))
         span.set_attribute("triage.result.confidence", result.confidence)
+        # Surface the trace id so the UI can anchor the trace-debug chat (Plan 31) to
+        # this request. Same 032x formatting the middleware uses for log correlation.
+        span_ctx = span.get_span_context()
+        if span_ctx is not None:
+            result.trace_id = format(span_ctx.trace_id, "032x")
         background_tasks.add_task(_log_triage_result, req, result)
         background_tasks.add_task(
             persist_triage_log,
@@ -95,13 +103,18 @@ async def triage(
 
 @router.post("/stream")
 @limiter.limit("20/minute")  # type: ignore[reportUnknownMemberType]
-async def triage_stream(request: Request, req: TriageRequest, llm: LLMDep) -> StreamingResponse:
+async def triage_stream(
+    request: Request, req: TriageRequest, llm: LLMDep, tenant: TenantDep
+) -> StreamingResponse:
     t_start = time.perf_counter()
 
     # Manually manage the span so it stays open through the generator's lifecycle.
     span_ctx = logfire.span("triage.stream")
     span = span_ctx.__enter__()
     span.set_attribute("endpoint", "stream")
+    # Root gets tenant_id explicitly (was missing on this endpoint); baggage below carries
+    # it to the child spans created when the stream starts (Plan 33).
+    span.set_attribute("tenant_id", str(tenant.tenant_id))
     span.set_attribute("email.subject_chars", len(req.subject))
     span.set_attribute("email.body_chars", len(req.body))
     REQUEST_BODY_CHARS.record(len(req.body))
@@ -116,7 +129,10 @@ async def triage_stream(request: Request, req: TriageRequest, llm: LLMDep) -> St
 
     stream_cm = llm.triage_stream(req)
     try:
-        stream = await stream_cm.__aenter__()
+        # The model-request / httpx child spans are created here, at __aenter__ (no yields
+        # involved), so baggage set around it safely tags them with tenant_id (Plan 33).
+        with logfire.set_baggage(tenant_id=str(tenant.tenant_id)):
+            stream = await stream_cm.__aenter__()
     except LLMError as exc:
         ERRORS_TOTAL.add(1, {"endpoint": "stream", "status_code": "503"})
         span.set_attribute("error.kind", "llm_unavailable")

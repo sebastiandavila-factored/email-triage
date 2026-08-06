@@ -4,6 +4,8 @@ import { useAuth, ApiError } from '../AuthContext'
 import { api } from '../api'
 import type { TriageResponse } from '../api'
 import { WorkspaceSwitcher } from '../components/WorkspaceSwitcher'
+import { TraceChat } from '../components/TraceChat'
+import { can } from '../rbac'
 
 const CATEGORY_COLORS: Record<string, string> = {
   status: 'bg-blue-100 text-blue-800',
@@ -21,6 +23,7 @@ export function Dashboard() {
   const [result, setResult] = useState<TriageResponse | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showTraces, setShowTraces] = useState(false)
 
   async function handleTriage(e: React.FormEvent) {
     e.preventDefault()
@@ -31,6 +34,7 @@ export function Dashboard() {
     }
     setError('')
     setResult(null)
+    setShowTraces(false)
     setLoading(true)
     try {
       const data = await api.triage(token, apiKey, subject, sender, body)
@@ -160,6 +164,21 @@ export function Dashboard() {
                 Copy reply
               </button>
             </div>
+
+            {/* Trace-debug chat — owner/admin only, and only once we have a trace id */}
+            {can(user?.role, 'traces:read') && result.trace_id && token && user?.tenant_id && (
+              <div>
+                <button
+                  onClick={() => setShowTraces((v) => !v)}
+                  className="text-xs text-gray-600 hover:text-gray-900"
+                >
+                  {showTraces ? '▾ Hide traces' : '▸ Ver traces'}
+                </button>
+                {showTraces && (
+                  <TraceChat token={token} tid={user.tenant_id} traceId={result.trace_id} />
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

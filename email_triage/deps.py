@@ -269,6 +269,7 @@ ManageMembersDep = Annotated[WorkspaceContext, Depends(require_scope("workspace:
 DeleteWorkspaceDep = Annotated[WorkspaceContext, Depends(require_scope("workspace:delete"))]
 ConfigureTriageDep = Annotated[WorkspaceContext, Depends(require_scope("triage:configure"))]
 PublishPromptDep = Annotated[WorkspaceContext, Depends(require_scope("prompt:publish"))]
+TracesReadDep = Annotated[WorkspaceContext, Depends(require_scope("traces:read"))]
 
 
 # ── Prompt management (Logfire) ───────────────────────────────────────────────

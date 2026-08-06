@@ -1,4 +1,5 @@
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -21,6 +22,10 @@ class TriageResponse(BaseModel):
     category: Category
     draft_reply: str = Field(min_length=1)
     confidence: float = Field(ge=0.0, le=1.0)
+    # OTel trace id (32 hex) of the span that produced this result, so the UI can
+    # anchor the trace-debug chat (Plan 31) to this exact request. None on paths
+    # that ran outside a recording span.
+    trace_id: str | None = None
 
 
 class StreamingTriageResponse(BaseModel):
@@ -41,6 +46,7 @@ class DynamicTriageResponse(BaseModel):
     category: str = Field(min_length=1)
     draft_reply: str = Field(min_length=1)
     confidence: float = Field(ge=0.0, le=1.0)
+    trace_id: str | None = None  # see TriageResponse.trace_id (Plan 31)
 
 
 class DynamicStreamingTriageResponse(BaseModel):
@@ -52,3 +58,29 @@ class DynamicStreamingTriageResponse(BaseModel):
 # What the router / persistence layer accept from either path.
 AnyTriageResponse = TriageResponse | DynamicTriageResponse
 AnyStreamingResponse = StreamingTriageResponse | DynamicStreamingTriageResponse
+
+
+# ── Trace-debug chat (Plan 31) ────────────────────────────────────────────────
+
+
+class TraceChatMessage(BaseModel):
+    """One prior turn of the trace-debug conversation, replayed by the client."""
+
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=8_000)
+
+
+def _empty_history() -> list[TraceChatMessage]:
+    return []
+
+
+class TraceChatRequest(BaseModel):
+    # 32-hex OTel trace id from a TriageResponse.trace_id; validated again server-side
+    # before it ever reaches a query.
+    trace_id: str = Field(min_length=1, max_length=64)
+    message: str = Field(min_length=1, max_length=2_000)
+    history: list[TraceChatMessage] = Field(default_factory=_empty_history, max_length=20)
+
+
+class TraceChatResponse(BaseModel):
+    reply: str
