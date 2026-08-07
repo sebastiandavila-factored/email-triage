@@ -20,8 +20,8 @@ export const LANDING_BODY = `
 
   <!-- ── Hero ────────────────────────────────────────────────────────────── -->
   <header class="hero">
-    <div class="wrap hero-grid">
-      <div>
+    <div class="wrap">
+      <div class="hero-copy" style="max-width:880px">
         <span class="eyebrow">Support triage, on your terms</span>
         <h1>Every email sorted into <span class="accent-word">your</span> categories &mdash; with a reply already drafted.</h1>
         <p class="lead">Triage Studio reads each inbound support email, files it under a category your workspace defines, and drafts a reply in the sender's language. The prompt behind it is something you shape, version, and ship &mdash; like code.</p>
@@ -30,37 +30,8 @@ export const LANDING_BODY = `
           <a href="#pipeline" class="btn btn-ghost">See how it works &darr;</a>
         </div>
       </div>
-
-      <!-- transformation card: the thesis -->
-      <div class="transform reveal">
-        <div>
-          <div class="t-label">Inbound email</div>
-          <div class="email-card" style="margin-top:8px">
-            <div class="email-meta">
-              <span><b>From</b> maria@shopper.com</span>
-              <span><b>Subject</b> Where's my refund?</span>
-            </div>
-            <p class="email-body">Hi &mdash; I returned the blender two weeks ago and still haven't seen the money back on my card. Can you check?</p>
-          </div>
-        </div>
-
-        <div class="flow-divider">classify + draft</div>
-
-        <div class="result-card">
-          <div class="result-top">
-            <span class="chip"><span class="dot" style="--c:var(--cat-refunds)"></span>refunds</span>
-            <span class="t-label">structured output</span>
-          </div>
-          <div class="conf">
-            <div class="conf-head"><span>confidence</span><span id="confPct">0.94</span></div>
-            <div class="conf-track"><div class="conf-fill" id="confFill" data-to="94%"></div></div>
-          </div>
-          <div class="draft">
-            <div class="t-label">Draft reply</div>
-            <p>Hi Maria &mdash; thanks for your patience. I can see your return was received; refunds post to the original card within 5&ndash;7 business days of processing. I've flagged this to expedite and will confirm once it clears.</p>
-          </div>
-        </div>
-      </div>
+      <!-- Live product demo (Plan 35) — React DemoReel mounted here by Landing.tsx via portal -->
+      <div id="demo-mount" class="demo-slot reveal" style="margin-top:clamp(32px,5vw,56px)"></div>
     </div>
   </header>
 

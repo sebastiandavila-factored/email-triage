@@ -1,9 +1,12 @@
 import { useEffect, useRef } from 'react'
+import { createRoot } from 'react-dom/client'
+import type { Root } from 'react-dom/client'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 import { useTheme } from '../ThemeContext'
 import { nextAfterAuth } from '../invite'
 import { LANDING_BODY } from './landingBody'
+import { DemoReel } from '../components/DemoReel'
 import './Landing.css'
 
 // The public marketing/landing page — the app's root ("/"). An authenticated
@@ -75,6 +78,23 @@ export function Landing() {
       if (timer) clearTimeout(timer)
     }
   }, [navigate, toggle])
+
+  // The landing body is injected as an HTML string; mount the React <DemoReel> into its
+  // #demo-mount node as its own root — decoupled from the innerHTML reconciliation (Plan 35).
+  // The root is stashed on the node and created only once (guards StrictMode's double-invoke
+  // and HMR against "createRoot() called twice on the same container"). The DemoReel pauses its
+  // engine via IntersectionObserver when its host leaves the viewport, so there's no CPU leak
+  // if the landing unmounts.
+  useEffect(() => {
+    const node = ref.current?.querySelector<HTMLElement>('#demo-mount') as
+      | (HTMLElement & { _demoRoot?: Root })
+      | null
+    if (!node) return
+    if (!node._demoRoot) {
+      node._demoRoot = createRoot(node)
+      node._demoRoot.render(<DemoReel />)
+    }
+  }, [])
 
   if (token) return <Navigate to={nextAfterAuth()} replace />
   return <div className="ts-root" ref={ref} dangerouslySetInnerHTML={{ __html: LANDING_BODY }} />
