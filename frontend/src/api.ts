@@ -153,6 +153,34 @@ export interface PromptVersion {
   published_at: string
 }
 
+// ── Gmail ingestion (Plan 37/38) ──────────────────────────────────────────────
+
+export interface GmailStatus {
+  connected: boolean
+  google_email?: string | null
+  last_synced_at?: string | null
+}
+
+export interface InboxItem {
+  message_id: string
+  sender: string
+  subject: string
+  received_at?: string | null
+  category: string
+  confidence: number
+  draft_reply: string
+  trace_id?: string | null
+}
+
+export interface SyncResponse {
+  items: InboxItem[]
+  synced_at: string
+}
+
+export interface GmailConnectResponse {
+  authorization_url: string
+}
+
 export class ApiError extends Error {
   status: number
   detail: string
@@ -452,5 +480,25 @@ export const api = {
 
   activateVersion(token: string, tid: string, version: number): Promise<PromptVersion> {
     return request(`/workspaces/${tid}/prompt/versions/${version}/activate`, { method: 'POST' }, token)
+  },
+
+  // ── Gmail ingestion ─────────────────────────────────────────────────────────
+
+  gmailStatus(token: string): Promise<GmailStatus> {
+    return request('/gmail/status', {}, token)
+  },
+
+  // Starts the consent flow: returns Google's authorization URL. Identity travels in the
+  // encrypted OAuth `state` (no cookie), so this works across the SPA/API origin split.
+  gmailConnect(token: string): Promise<GmailConnectResponse> {
+    return request('/gmail/connect', { method: 'POST' }, token)
+  },
+
+  gmailSync(token: string): Promise<SyncResponse> {
+    return request('/gmail/sync', { method: 'POST' }, token)
+  },
+
+  gmailDisconnect(token: string): Promise<{ disconnected: boolean; message: string }> {
+    return request('/gmail/connection', { method: 'DELETE' }, token)
   },
 }

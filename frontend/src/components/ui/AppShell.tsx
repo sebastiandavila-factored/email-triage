@@ -28,6 +28,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Brand />
         <div className="flex items-center gap-4 text-sm">
           <WorkspaceSwitcher />
+          <NavLink to="/inbox" className={navClass}>
+            Inbox
+          </NavLink>
           <NavLink to="/compare" className={navClass}>
             Compare
           </NavLink>

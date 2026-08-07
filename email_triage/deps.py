@@ -213,6 +213,11 @@ CurrentUserDep = Annotated[SessionContext, Security(get_current_user, scopes=[])
 ManageWorkspaceDep = Annotated[
     SessionContext, Security(get_current_user, scopes=["workspace:manage"])
 ]
+# Gmail connect/disconnect (Plan 36): resolves the caller's active workspace from the
+# session and enforces the gmail:connect scope (owner/admin) against that membership.
+ConnectGmailDep = Annotated[SessionContext, Security(get_current_user, scopes=["gmail:connect"])]
+# Read/sync a connected inbox (Plan 37): any workspace member (triage:write).
+WriteTriageDep = Annotated[SessionContext, Security(get_current_user, scopes=["triage:write"])]
 
 
 # ── Per-workspace RBAC (scoped by {tid} in the path) ──────────────────────────

@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth, ApiError } from '../AuthContext'
 import { api } from '../api'
+import type { GmailStatus } from '../api'
 import { AppShell } from '../components/ui/AppShell'
+import { can } from '../rbac'
 
 export function Settings() {
   const { user, token, apiKey, setApiKey } = useAuth()
@@ -9,6 +11,33 @@ export function Settings() {
   const [manualKey, setManualKey] = useState(apiKey ?? '')
   const [error, setError] = useState('')
   const [rotating, setRotating] = useState(false)
+  const [gmail, setGmail] = useState<GmailStatus | null>(null)
+  const canConnectGmail = can(user?.role, 'gmail:connect')
+
+  useEffect(() => {
+    if (!token) return
+    api.gmailStatus(token).then(setGmail).catch(() => setGmail(null))
+  }, [token])
+
+  async function handleGmailConnect() {
+    if (!token) return
+    try {
+      const { authorization_url } = await api.gmailConnect(token)
+      window.location.assign(authorization_url)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.detail : 'Could not start Gmail connection')
+    }
+  }
+
+  async function handleGmailDisconnect() {
+    if (!token) return
+    try {
+      await api.gmailDisconnect(token)
+      setGmail({ connected: false })
+    } catch (err) {
+      setError(err instanceof ApiError ? err.detail : 'Could not disconnect Gmail')
+    }
+  }
 
   async function handleRotate() {
     if (!token) return
@@ -53,6 +82,44 @@ export function Settings() {
               </div>
             ))}
           </dl>
+        </div>
+
+        {/* Gmail connection */}
+        <div className="bg-paper rounded-2xl border border-line p-6">
+          <h2 className="text-base font-semibold text-ink mb-1">Gmail</h2>
+          <p className="text-xs text-muted mb-4">
+            Connect a mailbox to triage the day's new emails from the{' '}
+            <a href="/inbox" className="text-brand hover:underline">
+              Inbox
+            </a>
+            . Read-only — we never send or delete anything.
+          </p>
+          {gmail?.connected ? (
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-sm text-ink">
+                Connected as <span className="font-medium">{gmail.google_email}</span>
+              </p>
+              {canConnectGmail && (
+                <button
+                  onClick={handleGmailDisconnect}
+                  className="border border-line text-crit hover:border-crit text-sm font-medium rounded-lg px-4 py-2 transition"
+                >
+                  Disconnect
+                </button>
+              )}
+            </div>
+          ) : canConnectGmail ? (
+            <button
+              onClick={handleGmailConnect}
+              className="bg-brand hover:bg-brand-bright text-paper text-sm font-medium rounded-lg px-4 py-2 transition"
+            >
+              Connect Gmail
+            </button>
+          ) : (
+            <p className="text-sm text-muted">
+              Ask an owner or admin to connect a Gmail account for this workspace.
+            </p>
+          )}
         </div>
 
         {/* Active API key */}

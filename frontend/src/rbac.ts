@@ -1,8 +1,8 @@
 // Mirror of the backend ROLE_SCOPES — used ONLY to show/hide UI affordances.
 // The backend re-checks every request; this is convenience, never security.
 export const FRONT_ROLE_SCOPES: Record<string, string[]> = {
-  owner: ['triage:write', 'triage:configure', 'prompt:publish', 'workspace:manage', 'workspace:delete', 'traces:read'],
-  admin: ['triage:write', 'triage:configure', 'workspace:manage', 'traces:read'],
+  owner: ['triage:write', 'triage:configure', 'prompt:publish', 'workspace:manage', 'workspace:delete', 'traces:read', 'gmail:connect'],
+  admin: ['triage:write', 'triage:configure', 'workspace:manage', 'traces:read', 'gmail:connect'],
   member: ['triage:write'],
 }
 

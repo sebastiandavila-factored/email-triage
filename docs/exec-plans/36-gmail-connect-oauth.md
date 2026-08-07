@@ -1,6 +1,6 @@
 # 36. Gmail Ingestion F1 — Conexión OAuth + almacenamiento cifrado del refresh token
 
-**Status:** 📋 proposed
+**Status:** 🚧 implemented (pending human review/merge)
 **Estimate:** ~4 hrs
 **Depends on:** Plan 15 (OAuth2 + PKCE + `state` en cookie firmada), Plan 16 (User/Tenant/Membership), Plan 21 (RBAC + `require_scope`).
 **Relacionado:** Plan 37 (sync + bandeja), Plan 38 (UI `/inbox`). Propuesta madre: [002-gmail-ingestion](../proposals/002-gmail-ingestion.md).
@@ -130,13 +130,20 @@ hace upsert del token).
 7. Tests (callback mock, cifrado, 503, RBAC, state mismatch) + docs `36-*` (60 min).
 8. `make check` verde.
 
+> **Ajuste durante ejecución:** `connect` quedó como **`POST /gmail/connect`** (no `GET` redirect)
+> que devuelve `{authorization_url}`. La identidad `(user_id, tenant_id)` + el `code_verifier` viajan
+> **cifrados dentro del `state`** de OAuth (Fernet, ttl 600s), **sin cookie** — el callback descifra
+> el `state` para recuperar la identidad. Se descartó la cookie firmada porque en prod la SPA y la API
+> son orígenes distintos y una cookie cross-site la bloquean Safari/Chrome; el `state` cifrado
+> round-trip por Google no depende de cookies. CORS ahora permite `DELETE` (para `disconnect`).
+
 ## Done when
 
-- [ ] `GET /gmail/connect` redirige a Google con `scope=gmail.readonly`, `access_type=offline`, `prompt=consent`, `state.purpose=connect`
-- [ ] `GET /gmail/callback` guarda una fila en `gmail_connections` con `refresh_token_enc` **cifrado** (nunca en claro)
-- [ ] Test verifica que el token persistido NO es legible sin la clave (round-trip cifrado)
-- [ ] RBAC: `gmail:connect` → owner/admin 2xx, member 403
-- [ ] Sin `GMAIL_TOKEN_ENC_KEY` → 503 "Gmail no configurado"
-- [ ] `DELETE /gmail/connection` borra la conexión del usuario
-- [ ] `make check` verde (ruff + pyright 0 + tests); `docs/features/36-*` y `docs/testing/36-*`
+- [x] `POST /gmail/connect` devuelve la URL de Google con `scope=gmail.readonly`, `access_type=offline`, `prompt=consent`; identidad en cookie firmada
+- [x] `GET /gmail/callback` guarda una fila en `gmail_connections` con `refresh_token_enc` **cifrado** (nunca en claro)
+- [x] Test verifica que el token persistido NO es legible sin la clave (round-trip cifrado)
+- [x] RBAC: `gmail:connect` → owner/admin 2xx, member 403
+- [x] Sin `GMAIL_TOKEN_ENC_KEY` → 503 "Gmail no configurado"
+- [x] `DELETE /gmail/connection` borra la conexión del usuario
+- [x] `make check` verde (ruff + pyright 0 + **212 tests**); `docs/features/36-*` y `docs/testing/36-*`
 - [ ] Humano validó con la guía de testing

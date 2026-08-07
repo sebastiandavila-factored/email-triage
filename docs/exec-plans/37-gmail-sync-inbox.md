@@ -1,6 +1,6 @@
 # 37. Gmail Ingestion F2 — Endpoint de sync + bandeja del día triada
 
-**Status:** 📋 proposed
+**Status:** 🚧 implemented (pending human review/merge)
 **Estimate:** ~5 hrs
 **Depends on:** Plan 36 (conexión Gmail + `refresh_token` cifrado), Plan 25 (`/triage` dinámico + `LLMService` por tenant), Plan 21 (RBAC).
 **Relacionado:** Plan 38 (UI `/inbox`). Propuesta madre: [002-gmail-ingestion](../proposals/002-gmail-ingestion.md).
@@ -115,11 +115,11 @@ privacidad del modelo actual).
 
 ## Done when
 
-- [ ] `POST /gmail/sync` devuelve los correos de hoy con `category`/`confidence`/`draft_reply` por correo
-- [ ] `GET /gmail/status` refleja `connected`, `google_email`, `last_synced_at`
-- [ ] `refresh_token` revocado → 409 accionable ("reconecta"), no 500
-- [ ] Ningún test toca red real (Gmail y `LLMService` mockeados) — `CLAUDE.md`
-- [ ] Test asegura aislamiento: la sync usa el `LLMService`/conexión del tenant de la sesión, no de otro
-- [ ] Bandeja vacía → respuesta con `items: []` (no error)
-- [ ] `make check` verde; `docs/features/37-*` y `docs/testing/37-*`
+- [x] `POST /gmail/sync` devuelve los correos de hoy con `category`/`confidence`/`draft_reply` por correo
+- [x] `GET /gmail/status` refleja `connected`, `google_email`, `last_synced_at`
+- [x] `refresh_token` revocado → 409 accionable ("reconecta"), no 500
+- [x] Ningún test toca red real (Gmail y `LLMService` mockeados) — `CLAUDE.md`
+- [x] Test asegura aislamiento: la sync usa el `LLMService`/conexión del tenant de la sesión, no de otro
+- [x] Bandeja vacía → respuesta con `items: []` (no error)
+- [x] `make check` verde (ruff + pyright 0 + **227 tests**); `docs/features/37-*` y `docs/testing/37-*`
 - [ ] Humano validó con la guía de testing

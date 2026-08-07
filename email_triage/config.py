@@ -35,6 +35,15 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     google_client_secret: str = ""
     google_redirect_uri: str = "http://localhost:8000/auth/callback"
+
+    # Gmail ingestion (Plan 36) — connect a mailbox to pull the day's emails. Reuses
+    # google_client_id/secret with a *separate* redirect URI (register it in Google
+    # Cloud Console). gmail_token_enc_key is a Fernet key (TokenCipher.generate_key());
+    # without it the Gmail endpoints return 503 (feature not configured). gmail_sync_max_results
+    # bounds how many of today's emails a single sync triages (Plan 37).
+    gmail_redirect_uri: str = "http://localhost:8000/gmail/callback"
+    gmail_token_enc_key: str | None = None
+    gmail_sync_max_results: int = 25
     session_secret: str = _INSECURE_SESSION_SECRET
     access_token_expire_minutes: int = 30
     frontend_url: str = "http://localhost:5173"

@@ -1,6 +1,6 @@
 # 38. Gmail Ingestion F3 — UI de la bandeja del día + card de conexión
 
-**Status:** 📋 proposed
+**Status:** 🚧 implemented (pending human review/merge)
 **Estimate:** ~4 hrs
 **Depends on:** Plan 36 (connect/disconnect), Plan 37 (`/gmail/status`, `/gmail/sync`), Plan 34 (design system unificado: `AppShell`, `kit`, tokens, tema claro/oscuro).
 **Relacionado:** Propuesta madre: [002-gmail-ingestion](../proposals/002-gmail-ingestion.md). Frontend-only, consume 36+37.
@@ -94,11 +94,11 @@ con cabecera de conexión, filas expandibles con borrador, y estado "Clasificand
 
 ## Done when
 
-- [ ] `/inbox` protegida; entrada visible en `AppShell`
-- [ ] Desconectado → card `Conectar Gmail` (owner/admin) con nota de privacidad; miembro no ve conectar
-- [ ] Conectado → cabecera con `google_email` + última sync + `Traer correos de hoy`
-- [ ] La bandeja lista correos con categoría + confianza; fila expandible muestra borrador + `Copiar` (+ `Ver traces` para owner/admin)
-- [ ] Estados cubiertos: skeleton de carga, empty celebratorio, banner de reconexión (409)
-- [ ] Verificado en claro y oscuro con el preview (screenshot en el testing doc)
-- [ ] `tsc --noEmit` + `eslint` + `vite build` verdes; `docs/features/38-*` y `docs/testing/38-*`
+- [x] `/inbox` protegida; entrada visible en `AppShell`
+- [x] Desconectado → card `Conectar Gmail` (owner/admin) con nota de privacidad; miembro no ve conectar
+- [x] Conectado → cabecera con `google_email` + última sync + `Traer correos de hoy`
+- [x] La bandeja lista correos con categoría + confianza; fila expandible muestra borrador + `Copiar` (+ `Ver traces` para owner/admin)
+- [x] Estados cubiertos: skeleton de carga, empty celebratorio, banner de reconexión (409)
+- [~] `tsc --noEmit` + `eslint` + `vite build` verdes; app arranca sin errores y `/inbox` protegida. **Pase visual autenticado (claro/oscuro) pendiente de sesión real con backend** — igual que la validación e2e de 36/37; diseño en el mockup compartido
+- [x] `docs/features/38-*` y `docs/testing/38-*`
 - [ ] Humano validó con la guía de testing

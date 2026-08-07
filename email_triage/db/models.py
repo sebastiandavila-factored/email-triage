@@ -236,6 +236,36 @@ class PromptVersion(Base):
     )
 
 
+class GmailConnection(Base):
+    """A user's Gmail connection within a workspace (Gmail Ingestion F1, Plan 36).
+
+    Stores the OAuth ``refresh_token`` **encrypted at rest** (Fernet, see
+    ``services.crypto.TokenCipher``) — it is a long-lived read credential to the
+    user's mailbox and must never be persisted in the clear. One connection per
+    ``(tenant_id, user_id)`` in v1; reconnecting upserts the token.
+    """
+
+    __tablename__ = "gmail_connections"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "user_id", name="uq_gmail_connections_tenant_user"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    google_email: Mapped[str] = mapped_column(String(255), nullable=False)
+    refresh_token_enc: Mapped[str] = mapped_column(Text, nullable=False)
+    scopes: Mapped[str] = mapped_column(Text, nullable=False)
+    connected_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class EvalRun(Base):
     __tablename__ = "eval_runs"
 

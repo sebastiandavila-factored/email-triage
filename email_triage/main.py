@@ -21,7 +21,9 @@ from email_triage.middleware import RequestIdMiddleware
 from email_triage.routers import (
     auth,
     categories,
+    gmail,
     health,
+    inbox,
     prompt_studio,
     traces,
     triage,
@@ -41,6 +43,9 @@ def _scrub(match: ScrubMatch) -> str | None:
         "database_url",
         "google_client_secret",
         "session_secret",
+        "gmail_token_enc_key",
+        "refresh_token",
+        "refresh_token_enc",
     }
     if match.path and str(match.path[-1]).lower() in sensitive:
         return "[REDACTED]"
@@ -127,7 +132,7 @@ if _settings.cors_origins_list:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=_settings.cors_origins_list,
-        allow_methods=["GET", "POST"],
+        allow_methods=["GET", "POST", "DELETE"],
         allow_headers=["authorization", "x-api-key", "content-type"],
     )
 
@@ -139,5 +144,7 @@ app.include_router(workspaces.invitations_router)
 app.include_router(categories.router)
 app.include_router(prompt_studio.router)
 app.include_router(traces.router)
+app.include_router(gmail.router)
+app.include_router(inbox.router)
 
 logfire.instrument_fastapi(app)

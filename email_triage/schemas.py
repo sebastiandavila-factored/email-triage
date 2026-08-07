@@ -1,3 +1,4 @@
+from datetime import datetime
 from enum import StrEnum
 from typing import Literal
 
@@ -84,3 +85,31 @@ class TraceChatRequest(BaseModel):
 
 class TraceChatResponse(BaseModel):
     reply: str
+
+
+# ── Gmail ingestion (Plan 37) ─────────────────────────────────────────────────
+
+
+class GmailStatusResponse(BaseModel):
+    connected: bool
+    google_email: str | None = None
+    last_synced_at: datetime | None = None
+
+
+class InboxItem(BaseModel):
+    """One of today's emails, already triaged. ``sender`` is the raw From header for
+    display; the strict-email value used for classification is derived internally."""
+
+    message_id: str
+    sender: str
+    subject: str
+    received_at: datetime | None = None
+    category: str
+    confidence: float
+    draft_reply: str
+    trace_id: str | None = None
+
+
+class SyncResponse(BaseModel):
+    items: list[InboxItem]
+    synced_at: datetime
