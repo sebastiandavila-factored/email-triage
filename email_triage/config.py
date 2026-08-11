@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     gmail_redirect_uri: str = "http://localhost:8000/gmail/callback"
     gmail_token_enc_key: str | None = None
     gmail_sync_max_results: int = 25
+    # Upper bound (in days) for the sync's look-back window (Plan 40). A wider window widens
+    # *which* emails qualify, not *how many* are triaged — that stays capped by max_results.
+    gmail_sync_max_days: int = 30
     session_secret: str = _INSECURE_SESSION_SECRET
     access_token_expire_minutes: int = 30
     frontend_url: str = "http://localhost:5173"

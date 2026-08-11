@@ -132,7 +132,9 @@ if _settings.cors_origins_list:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=_settings.cors_origins_list,
-        allow_methods=["GET", "POST", "DELETE"],
+        # Studio uses PUT (save draft) and PATCH (edit category); without them the
+        # browser's preflight for those methods is rejected with 400.
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
         allow_headers=["authorization", "x-api-key", "content-type"],
     )
 

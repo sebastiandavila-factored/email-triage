@@ -33,6 +33,11 @@ Rollback   → activate a prior version (deactivate the rest)
   overrides=None)`. With neither, it's the plain-prose base prompt. Few-shot examples are
   wrapped in `<examples>` after the `Categories:` list (per Plan 29 — tags only for
   examples and the email); `tone` renders as a `- Tone: …` guideline line.
+- **Positive vs negative examples (Plan 39):** a `positive` example teaches the correct
+  label — `category: {slug}` (+ optional `reply:`). A `negative` example is a
+  *counter-example*: it renders `This email is NOT "{slug}" — do not classify it there.`
+  with no label and no reply. Pairing a positive with a negative (e.g. a real invoice as a
+  negative under `estafa`) is the cheapest way to kill a specific false positive.
 - **Eval-gate (injectable):** `PromptStudioService(gate=...)`. The gate maps a compiled
   prompt → `GateMetrics(accuracy, macro_f1)`; publish blocks with **409** if metrics
   regress below the active version's stored baseline by more than `GATE_MARGIN` (0.02).

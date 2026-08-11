@@ -52,6 +52,16 @@ def test_examples_injected_into_examples_block() -> None:
     assert "<classification>" not in prompt
 
 
+def test_negative_example_renders_as_counter_example() -> None:
+    ex = [ExampleSpec("refunds", "negative", "Your invoice A-0042", "Due 28/02.", None)]
+    prompt = compile_system_prompt(_CATS, examples=ex)
+    assert "<example>" in prompt
+    assert 'This email is NOT "refunds"' in prompt
+    # A negative must NOT read as a positive assignment or carry a reply.
+    assert "category: refunds" not in prompt
+    assert "reply:" not in prompt
+
+
 def test_no_examples_means_no_examples_block() -> None:
     assert compile_system_prompt(_CATS) == compile_system_prompt(_CATS, examples=[])
     assert "<examples>" not in compile_system_prompt(_CATS)

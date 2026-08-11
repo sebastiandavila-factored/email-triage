@@ -110,6 +110,15 @@ class InboxItem(BaseModel):
     trace_id: str | None = None
 
 
+class SyncRequest(BaseModel):
+    """Filters for a Gmail sync (Plan 40). Body is optional; the defaults reproduce Plan 37's
+    original behavior (today's unread inbox). ``days`` is bounded server-side against
+    ``gmail_sync_max_days`` (the router raises 422 above it)."""
+
+    unread_only: bool = True
+    days: int = Field(default=1, ge=1)
+
+
 class SyncResponse(BaseModel):
     items: list[InboxItem]
     synced_at: datetime

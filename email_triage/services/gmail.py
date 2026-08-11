@@ -22,9 +22,24 @@ _log = structlog.get_logger()
 
 _GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 _GMAIL_MESSAGES_URL = "https://gmail.googleapis.com/gmail/v1/users/me/messages"
-# Today's unread inbox. newer_than:1d is a rolling 24h window (good enough for v1;
-# a strict "since local midnight" would use after:<epoch>).
-TODAY_QUERY = "in:inbox is:unread newer_than:1d"
+
+
+def build_inbox_query(unread_only: bool, days: int) -> str:
+    """Build the Gmail search query for an inbox sync (Plan 40).
+
+    ``in:inbox`` always; ``is:unread`` only when filtering to unread; ``newer_than:Nd`` is a
+    rolling N×24h window (good enough for v1 — a strict "since local midnight" would use
+    ``after:<epoch>``).
+    """
+    parts = ["in:inbox"]
+    if unread_only:
+        parts.append("is:unread")
+    parts.append(f"newer_than:{int(days)}d")
+    return " ".join(parts)
+
+
+# Back-compat alias: the default (today's unread inbox) the sync used before Plan 40's filters.
+TODAY_QUERY = build_inbox_query(unread_only=True, days=1)
 
 _MAX_RETRIES = 2
 _BACKOFF_BASE = 0.5  # seconds; exponential, only on 429/503

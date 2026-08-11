@@ -18,7 +18,13 @@ from email_triage.deps import get_settings
 from email_triage.main import app
 from email_triage.schemas import DynamicTriageResponse
 from email_triage.services.crypto import TokenCipher
-from email_triage.services.gmail import GmailAuthError, GmailClient, GmailMessage
+from email_triage.services.gmail import (
+    TODAY_QUERY,
+    GmailAuthError,
+    GmailClient,
+    GmailMessage,
+    build_inbox_query,
+)
 from email_triage.services.llm import LLMError
 from fastapi.testclient import TestClient
 
@@ -371,6 +377,64 @@ def test_sync_503_when_all_triage_fail(inbox_client: TestClient) -> None:
         )
         resp = inbox_client.post("/gmail/sync", headers=_bearer(user_id))
     assert resp.status_code == 503
+
+
+# ── Plan 40: read-state + look-back-window filters ──────────────────────────────
+
+
+def test_build_inbox_query_combinations() -> None:
+    assert build_inbox_query(True, 1) == "in:inbox is:unread newer_than:1d"
+    assert build_inbox_query(False, 7) == "in:inbox newer_than:7d"
+    assert build_inbox_query(True, 30) == "in:inbox is:unread newer_than:30d"
+    assert build_inbox_query(False, 1) == "in:inbox newer_than:1d"
+
+
+def test_today_query_alias_matches_default() -> None:
+    # Back-compat: the module constant is exactly Plan 37's original (unread, 1 day).
+    assert TODAY_QUERY == build_inbox_query(True, 1) == "in:inbox is:unread newer_than:1d"
+
+
+def test_sync_without_body_uses_default_query(inbox_client: TestClient) -> None:
+    user_id, tenant_id = uuid.uuid4(), uuid.uuid4()
+    inst = _gmail_instance([])
+    with ExitStack() as stack:
+        _sync_stack(stack, user_id, tenant_id, connection=_connection(), gmail_instance=inst)
+        resp = inbox_client.post("/gmail/sync", headers=_bearer(user_id))
+    assert resp.status_code == 200
+    # 3rd positional arg to list_today(http, access_token, query, max_results) is the query.
+    assert inst.list_today.await_args.args[2] == "in:inbox is:unread newer_than:1d"
+
+
+def test_sync_applies_filters(inbox_client: TestClient) -> None:
+    user_id, tenant_id = uuid.uuid4(), uuid.uuid4()
+    inst = _gmail_instance([])
+    with ExitStack() as stack:
+        _sync_stack(stack, user_id, tenant_id, connection=_connection(), gmail_instance=inst)
+        resp = inbox_client.post(
+            "/gmail/sync", headers=_bearer(user_id), json={"unread_only": False, "days": 7}
+        )
+    assert resp.status_code == 200
+    assert inst.list_today.await_args.args[2] == "in:inbox newer_than:7d"
+
+
+def test_sync_422_when_days_over_max(inbox_client: TestClient) -> None:
+    user_id, tenant_id = uuid.uuid4(), uuid.uuid4()
+    with ExitStack() as stack:
+        _sync_stack(
+            stack, user_id, tenant_id, connection=_connection(), gmail_instance=_gmail_instance([])
+        )
+        resp = inbox_client.post("/gmail/sync", headers=_bearer(user_id), json={"days": 99})
+    assert resp.status_code == 422
+
+
+def test_sync_422_when_days_below_min(inbox_client: TestClient) -> None:
+    user_id, tenant_id = uuid.uuid4(), uuid.uuid4()
+    with ExitStack() as stack:
+        _sync_stack(
+            stack, user_id, tenant_id, connection=_connection(), gmail_instance=_gmail_instance([])
+        )
+        resp = inbox_client.post("/gmail/sync", headers=_bearer(user_id), json={"days": 0})
+    assert resp.status_code == 422
 
 
 def test_sync_503_when_not_configured() -> None:

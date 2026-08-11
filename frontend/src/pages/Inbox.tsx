@@ -31,6 +31,8 @@ export function Inbox() {
   const [loadingStatus, setLoadingStatus] = useState(true)
   const [items, setItems] = useState<InboxItem[] | null>(null)
   const [syncing, setSyncing] = useState(false)
+  const [unreadOnly, setUnreadOnly] = useState(true)
+  const [days, setDays] = useState(1)
   const [error, setError] = useState('')
   const [needsReconnect, setNeedsReconnect] = useState(false)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
@@ -106,7 +108,7 @@ export function Inbox() {
     setNeedsReconnect(false)
     setSyncing(true)
     try {
-      const data = await api.gmailSync(token)
+      const data = await api.gmailSync(token, { unreadOnly, days })
       setItems(data.items)
       await loadStatus()
     } catch (err) {
@@ -136,7 +138,7 @@ export function Inbox() {
       <div className="max-w-3xl mx-auto p-6 space-y-6">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Inbox</h1>
-          <p className="text-sm text-muted mt-1">Today's unread emails, triaged automatically.</p>
+          <p className="text-sm text-muted mt-1">Recent emails, triaged automatically.</p>
         </div>
 
         {notice && (
@@ -158,9 +160,30 @@ export function Inbox() {
                 <SectionHead kicker="Connected" title={status.google_email ?? 'Gmail'} />
                 <p className="text-xs text-muted mt-1">Last sync: {relSync(status.last_synced_at)}</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="flex items-center gap-1.5 text-sm text-ink-soft">
+                  <input
+                    type="checkbox"
+                    checked={unreadOnly}
+                    onChange={(e) => setUnreadOnly(e.target.checked)}
+                    disabled={syncing}
+                  />
+                  Unread only
+                </label>
+                <select
+                  className="text-sm border border-line rounded-lg bg-paper text-ink px-2 py-1.5"
+                  value={days}
+                  onChange={(e) => setDays(Number(e.target.value))}
+                  disabled={syncing}
+                  aria-label="Look-back window"
+                >
+                  <option value={1}>Last 1 day</option>
+                  <option value={3}>Last 3 days</option>
+                  <option value={7}>Last 7 days</option>
+                  <option value={30}>Last 30 days</option>
+                </select>
                 <Button onClick={handleSync} disabled={syncing}>
-                  {syncing ? 'Fetching…' : "Fetch today's emails"}
+                  {syncing ? 'Fetching…' : 'Fetch emails'}
                 </Button>
                 {canConnect && (
                   <Button variant="ghost" onClick={handleDisconnect}>

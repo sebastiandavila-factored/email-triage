@@ -494,8 +494,20 @@ export const api = {
     return request('/gmail/connect', { method: 'POST' }, token)
   },
 
-  gmailSync(token: string): Promise<SyncResponse> {
-    return request('/gmail/sync', { method: 'POST' }, token)
+  gmailSync(
+    token: string,
+    opts?: { unreadOnly: boolean; days: number },
+  ): Promise<SyncResponse> {
+    return request(
+      '/gmail/sync',
+      {
+        method: 'POST',
+        body: JSON.stringify(
+          opts ? { unread_only: opts.unreadOnly, days: opts.days } : {},
+        ),
+      },
+      token,
+    )
   },
 
   gmailDisconnect(token: string): Promise<{ disconnected: boolean; message: string }> {

@@ -97,8 +97,13 @@ def _render_category(spec: CategorySpec) -> str:
 
 def _render_example(spec: ExampleSpec) -> str:
     """A single few-shot example. Wrapped in ``<example>`` (the one place tags earn
-    their keep), with the email delimited like the real input and plain labels for
-    the expected classification and reply."""
+    their keep), with the email delimited like the real input.
+
+    A ``positive`` example teaches the correct label (and an optional reply). A
+    ``negative`` example is a counter-example: it asserts the email is *not* the
+    category it's filed under — the cheapest way to kill a specific false positive —
+    so it carries no label assignment and no reply.
+    """
     lines = [
         "<example>",
         "<email>",
@@ -106,10 +111,14 @@ def _render_example(spec: ExampleSpec) -> str:
         "",
         _escape(spec.body),
         "</email>",
-        f"category: {_escape(spec.category_slug)}",
     ]
-    if spec.expected_reply:
-        lines.append(f"reply: {_escape(spec.expected_reply)}")
+    if spec.kind == "negative":
+        slug = _escape(spec.category_slug)
+        lines.append(f'This email is NOT "{slug}" — do not classify it there.')
+    else:
+        lines.append(f"category: {_escape(spec.category_slug)}")
+        if spec.expected_reply:
+            lines.append(f"reply: {_escape(spec.expected_reply)}")
     lines.append("</example>")
     return "\n".join(lines)
 
@@ -139,7 +148,8 @@ def compile_system_prompt(
     if examples:
         examples_block = "\n".join(_render_example(e) for e in examples)
         parts.append(
-            "Here are examples of correctly handled emails:\n\n"
+            "Here are examples to guide your classification "
+            '(a "NOT" line marks a counter-example to avoid):\n\n'
             f"<examples>\n{examples_block}\n</examples>"
         )
     parts.append(f"Guidelines:\n{guardrails}")
