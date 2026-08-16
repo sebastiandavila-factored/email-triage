@@ -3,7 +3,8 @@
 **Status:** 🚧 implemented (pending human review/merge)
 **Estimate:** ~2 hrs
 **Depends on:** nada del código de la app. Depende de infra externa: instalar la
-**Claude GitHub App** en el repo y cargar el secret `ANTHROPIC_API_KEY` (lo hace el humano — ver §Setup).
+**Claude GitHub App** en el repo (auth de GitHub) y cargar el secret `OPENROUTER_API_KEY`
+(auth del LLM vía OpenRouter) (lo hace el humano — ver §Setup).
 **Tipo:** tooling / CI (no toca `email_triage/`; no cambia la superficie pública `/triage`, `/triage/stream`, `/health`).
 
 ## Intent
@@ -31,8 +32,17 @@ sobre el Agent SDK:
 **Decisión (con el humano):** camino **2 con skill del repo** — la Action oficial
 (bajo mantenimiento de Anthropic) invocando `.claude/skills/review-pr/`, que codifica las
 convenciones de `CLAUDE.md`. Balance entre bajo mantenimiento y conocimiento del repo.
-Auth con `ANTHROPIC_API_KEY` (Console), no con token de suscripción, porque el secret
-no queda atado a una cuenta personal y factura por API (apto para CI/org).
+
+**Actualización (auth) — OpenRouter en vez de Anthropic Console:** en la práctica la key
+disponible era de **OpenRouter** (`sk-or-...`), no de Anthropic (`sk-ant-...`), por lo que
+el primer intento con la Action falló con `authentication_error: API key is invalid`.
+OpenRouter expone una **"Anthropic Skin"** (`https://openrouter.ai/api`) que habla el
+protocolo nativo de Anthropic (incl. tool-use), así que Claude Code se re-apunta ahí sin
+cambiar el diseño: `ANTHROPIC_BASE_URL=https://openrouter.ai/api`,
+`ANTHROPIC_AUTH_TOKEN=<sk-or>`, `ANTHROPIC_API_KEY=""` (vacío, no sin setear, o cae a
+`api.anthropic.com`). El secret pasa a llamarse `OPENROUTER_API_KEY`. Modelos con slug
+de OpenRouter (`anthropic/claude-...`). Nota: la Action sigue necesitando la GitHub App
+para postear (auth de GitHub, ortogonal al proveedor del LLM).
 
 ## Prior reading
 
@@ -60,8 +70,9 @@ no queda atado a una cuenta personal y factura por API (apto para CI/org).
   cancel-in-progress, `timeout-minutes: 20`. Permisos mínimos (`contents: read`,
   `pull-requests: write`, `id-token: write`). `actions/checkout@v6` con `fetch-depth: 0`
   para poder diffear contra la base. Invoca `/review-pr --comment <repo>/pull/<n> --base <ref>`;
-  `claude_args` habilita la tool inline-comment, fija `--model claude-opus-5` (cambiar a
-  `claude-sonnet-5` para abaratar) y `--max-turns 30`.
+  `claude_args` habilita la tool inline-comment, fija `--model anthropic/claude-haiku-4.5`
+  (slug de OpenRouter, para smoke-test barato) y `--max-turns 30`. El bloque `env` re-apunta
+  a OpenRouter (ver Actualización de auth arriba).
 - **`docs/CODE-REVIEW.md`** (nuevo) — doc de setup/handoff: cómo funciona, los pasos
   one-time del humano, notas de costo/fork-PRs/uso local, y alternativas consideradas.
 
@@ -70,13 +81,15 @@ no queda atado a una cuenta personal y factura por API (apto para CI/org).
 - **`--base <ref>` explícito** (desde `github.event.pull_request.base.ref`) en vez de
   depender de `gh` autenticado: el diff es determinístico y no necesita token de shell.
 - **`pull-requests: write`** (no `read`): necesario para postear los comentarios inline.
-- **Modelo:** `claude-opus-5` por defecto (mejor recall/precision en review); documentada
-  la baja a `claude-sonnet-5` para costo.
+- **Auth vía OpenRouter Anthropic-Skin** (no Anthropic Console): usa la key que ya se tenía;
+  conserva el diseño de la Action + skill sin reescribir a un cliente OpenAI-compatible.
+- **Modelo:** `anthropic/claude-haiku-4.5` para probar barato; subir a sonnet/opus (slug de
+  OpenRouter) para calidad real de review. Verificar slugs en openrouter.ai/anthropic.
 
 ## Setup (humano — el agente no puede)
 
-1. Instalar la **Claude GitHub App** (`github.com/apps/claude`) en `sebastiandavila-factored/email-triage`.
-2. Cargar el secret `ANTHROPIC_API_KEY` (repo → Settings → Secrets → Actions).
+1. Instalar la **Claude GitHub App** (`github.com/apps/claude`) en `sebastiandavila-factored/email-triage` (auth de GitHub, para postear).
+2. Crear una key en `openrouter.ai/keys` y cargarla como secret `OPENROUTER_API_KEY` (repo → Settings → Secrets → Actions).
 3. Mergear el PR con estos archivos. Detalle en [docs/CODE-REVIEW.md](../CODE-REVIEW.md).
 
 ## Testing

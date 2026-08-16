@@ -24,18 +24,26 @@ pull_request event
   Edit this file to change what the reviewer looks for — it already knows the
   Triage Studio category rules, the DI/async/HTTP-code contracts, the
   "tests never call Groq" rule, and the strict-pyright bar.
-- **Model:** `claude-opus-5` (change to `claude-sonnet-5` in `claude_args` to cut cost).
+- **LLM provider:** [OpenRouter](https://openrouter.ai) via its Anthropic-compatible
+  endpoint (`ANTHROPIC_BASE_URL=https://openrouter.ai/api`). No Anthropic Console
+  account is needed for inference; the GitHub App is still required for posting to PRs.
+- **Model:** `anthropic/claude-haiku-4.5` (OpenRouter slug, cheap smoke-test default).
+  Bump to `anthropic/claude-sonnet-4.5` / the current opus slug in `claude_args` for
+  real review quality. Verify exact slugs at <https://openrouter.ai/anthropic>.
 
 ## One-time setup (human)
 
 The agent cannot do these — they need repo admin and touch secrets/accounts.
 
 1. **Install the Claude GitHub App** on `sebastiandavila-factored/email-triage`:
-   <https://github.com/apps/claude> (grant Contents, Issues, Pull requests).
+   <https://github.com/apps/claude> (grant Contents, Issues, Pull requests). This is
+   only for GitHub auth (posting comments) — it is independent of the LLM provider.
    Easiest path: run `/install-github-app` from `claude` locally in this repo.
-2. **Add the API key as a repository secret** named `ANTHROPIC_API_KEY`
-   (Settings → Secrets and variables → Actions → New repository secret).
-   Get the key from the [Claude Console](https://console.anthropic.com).
+2. **Add your OpenRouter key as a repository secret** named `OPENROUTER_API_KEY`
+   (Settings → Secrets and variables → Actions → New repository secret). Create the
+   key at <https://openrouter.ai/keys>. The workflow's `env` block wires it to
+   `ANTHROPIC_AUTH_TOKEN` and sets `ANTHROPIC_API_KEY: ""` so requests route to
+   OpenRouter, not Anthropic.
 3. Merge the PR that adds these files. From then on, every PR gets reviewed.
 
 To test: open a PR (or push a commit to an existing one) and watch Claude post
