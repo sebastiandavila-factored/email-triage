@@ -17,6 +17,7 @@ Logfire access is isolated behind the ``LogfireTraceClient`` protocol so tests i
 from __future__ import annotations
 
 import re
+import time
 import uuid
 from dataclasses import dataclass
 from typing import Any, Protocol, cast
@@ -25,6 +26,9 @@ from pydantic_ai import Agent, RunContext
 from pydantic_ai.models import Model
 from pydantic_ai.toolsets.function import FunctionToolset
 
+from email_triage.observability import AGENT_E2E_LATENCY_MS
+from email_triage.schemas import TraceDiagnosis
+from email_triage.services.agent_telemetry import instrument_agent_run
 from email_triage.services.groq import build_groq_model
 
 # A 32-hex OTel trace id (what ``format(trace_id, "032x")`` produces). Anything else is
@@ -164,6 +168,35 @@ def build_trace_agent(model: Model) -> Agent[TraceDeps, str]:
     )
 
 
+DIAGNOSIS_SYSTEM_PROMPT = (
+    "You are a support engineer producing a STRUCTURED diagnosis of ONE email-triage request "
+    "from its Logfire traces.\n"
+    "- First call the tools to fetch the trace's spans; if a symptom (error, high latency, low "
+    "confidence) might be recurring, also look at recent org traces.\n"
+    "- Ground EVERY field in returned data; never invent spans, numbers, categories or errors. "
+    "Put the concrete spans you relied on in `evidence`.\n"
+    "- Set `suggested_fix_kind`: `add_counter_example` when the model picked a category it "
+    "shouldn't (a counter-example would help); `tweak_category` when a category's description is "
+    "ambiguous; `adjust_examples` when existing few-shots mislead; `none` when config wouldn't "
+    "help (correct result, or an infra/LLM outage).\n"
+    "- When the fix targets a category, set `target_slug` to that category's slug.\n"
+    "- If the tools return nothing, use `suggested_fix_kind=none` and a low `confidence`."
+)
+
+
+def build_diagnosis_agent(model: Model) -> Agent[TraceDeps, TraceDiagnosis]:
+    """Structured-diagnosis agent: the SAME curated toolset as the chat agent, but returns a
+    ``TraceDiagnosis`` instead of free text (so Plan 44 can act on it)."""
+    toolset = FunctionToolset[TraceDeps]([get_trace_spans, search_recent_org_traces])
+    return Agent(
+        model,
+        deps_type=TraceDeps,
+        output_type=TraceDiagnosis,
+        toolsets=[toolset],
+        system_prompt=DIAGNOSIS_SYSTEM_PROMPT,
+    )
+
+
 def _compose_prompt(message: str, history: list[tuple[str, str]]) -> str:
     """Fold prior turns into the prompt (v1 keeps history client-side; proper
     ``message_history`` is a follow-up)."""
@@ -174,6 +207,16 @@ def _compose_prompt(message: str, history: list[tuple[str, str]]) -> str:
     return "Conversation so far:\n" + "\n".join(lines)
 
 
+async def owns_trace(client: LogfireTraceClient, tenant_id: str, trace_id: str) -> bool:
+    """True iff the trace has at least one span tagged with this tenant.
+
+    Because the query ANDs both predicates, a trace belonging to another org (or a
+    non-existent one) returns zero rows → the caller answers 404, never leaks.
+    """
+    rows = await client.query(trace_spans_sql(tenant_id, trace_id, limit=1))
+    return len(rows) > 0
+
+
 class TraceChatService:
     """Ties the agent to a Logfire client and enforces the ownership guard."""
 
@@ -182,13 +225,7 @@ class TraceChatService:
         self._client = client
 
     async def owns_trace(self, tenant_id: str, trace_id: str) -> bool:
-        """True iff the trace has at least one span tagged with this tenant.
-
-        Because the query ANDs both predicates, a trace belonging to another org (or a
-        non-existent one) returns zero rows → the caller answers 404, never leaks.
-        """
-        rows = await self._client.query(trace_spans_sql(tenant_id, trace_id, limit=1))
-        return len(rows) > 0
+        return await owns_trace(self._client, tenant_id, trace_id)
 
     async def chat(
         self, tenant_id: str, trace_id: str, message: str, history: list[tuple[str, str]]
@@ -205,6 +242,38 @@ class TraceChatService:
                 "The trace assistant could not complete the analysis; please retry."
             ) from exc
         return result.output
+
+
+class TraceDiagnosisService:
+    """Runs the structured-diagnosis agent for one trace, with the ownership guard (Plan 43)."""
+
+    def __init__(self, agent: Agent[TraceDeps, TraceDiagnosis], client: LogfireTraceClient) -> None:
+        self._agent = agent
+        self._client = client
+
+    async def owns_trace(self, tenant_id: str, trace_id: str) -> bool:
+        return await owns_trace(self._client, tenant_id, trace_id)
+
+    async def diagnose(self, tenant_id: str, trace_id: str) -> TraceDiagnosis:
+        deps = TraceDeps(
+            client=self._client, tenant_id=tenant_id, trace_id=ensure_trace_id(trace_id)
+        )
+        t0 = time.perf_counter()
+        try:
+            # Plan 42: instrument the agent.run (tokens/latency/iterations/context/tool-calls).
+            result = await instrument_agent_run(
+                "diagnosis", self._agent.run(f"Diagnose triage trace {trace_id}.", deps=deps)
+            )
+        except LogfireQueryError:
+            raise  # already actionable (bad query / Logfire down) — let the router map it
+        except Exception as exc:  # noqa: BLE001 — model/tool/transport failure → graceful 503
+            raise LogfireQueryError(
+                "The diagnosis assistant could not complete the analysis; please retry."
+            ) from exc
+        AGENT_E2E_LATENCY_MS.record((time.perf_counter() - t0) * 1000, {"agent": "diagnosis"})
+        out = result.output
+        out.confidence = max(0.0, min(1.0, out.confidence))  # defensive clamp
+        return out
 
 
 # ── Production Logfire adapter (isolates the version-sensitive MCP client) ─────────────
@@ -258,3 +327,11 @@ def build_trace_chat_service(
     agent = build_trace_agent(build_groq_model(groq_model, groq_api_key))
     client = LogfireQueryApiClient(read_token, base_url)
     return TraceChatService(agent, client)
+
+
+def build_diagnosis_service(
+    *, groq_model: str, groq_api_key: str, read_token: str, base_url: str | None = None
+) -> TraceDiagnosisService:
+    """Production factory: Groq-backed structured-diagnosis agent + Logfire query-API client."""
+    agent = build_diagnosis_agent(build_groq_model(groq_model, groq_api_key))
+    return TraceDiagnosisService(agent, LogfireQueryApiClient(read_token, base_url))

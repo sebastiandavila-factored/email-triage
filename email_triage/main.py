@@ -25,8 +25,10 @@ from email_triage.routers import (
     health,
     inbox,
     prompt_studio,
+    reports,
     traces,
     triage,
+    tuning,
     workspaces,
 )
 
@@ -148,5 +150,7 @@ app.include_router(prompt_studio.router)
 app.include_router(traces.router)
 app.include_router(gmail.router)
 app.include_router(inbox.router)
+app.include_router(tuning.router)
+app.include_router(reports.router)
 
 logfire.instrument_fastapi(app)

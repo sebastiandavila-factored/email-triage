@@ -25,9 +25,11 @@ from evals.judge import JudgeAgent
 from evals.metrics import EvalReport, compute_pass_hat_k, compute_report
 from evals.schemas import CaseMeta, EvalCase, EvalResult
 
-# Kept modest so bursts stay under Groq's free-tier TPM limit; 429s that still
-# slip through are retried with backoff by the shared Groq client (services/groq.py).
-_MAX_CONCURRENCY = 3
+# Serialized (concurrency 1) to stay under Groq's free-tier TPM limit: bursts at
+# higher concurrency triggered cascading connection errors that failed the run's
+# error-rate gate. 429s that still slip through are retried with backoff by the
+# shared Groq client (services/groq.py).
+_MAX_CONCURRENCY = 1
 
 # Per-suite accuracy gates. regression must stay near-perfect; capability is harder and
 # trend-tracked; "all" / custom datasets use the plan-13 headline target.

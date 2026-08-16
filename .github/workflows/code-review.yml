@@ -1,0 +1,44 @@
+name: Code Review
+
+# AI-assisted code review on every pull request, using the official
+# Claude Code GitHub Action (built on the Claude Agent SDK) driving the
+# repo-local skill in .claude/skills/review-pr/. See docs/CODE-REVIEW.md.
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+
+# Cancel an in-flight review when the PR gets new commits.
+concurrency:
+  group: code-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    # Skip drafts; the action also skips PRs it judges not to need a review.
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read        # read the code
+      pull-requests: write  # post inline review comments
+      issues: read
+      id-token: write       # required for the action's default GitHub App auth
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0    # full history so the skill can diff against the base
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Invoke the repo-local skill (.claude/skills/review-pr/SKILL.md).
+          prompt: >-
+            /review-pr
+            --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}
+            --base ${{ github.event.pull_request.base.ref }}
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment"
+            --model claude-opus-5
+            --max-turns 30
+          # Switch --model to claude-sonnet-5 to cut cost (near-Opus quality on code).

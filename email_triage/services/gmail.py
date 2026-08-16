@@ -155,6 +155,7 @@ class GmailClient:
         access_token: str,
         query: str = TODAY_QUERY,
         max_results: int = 25,
+        concurrency: int = 5,
     ) -> list[GmailMessage]:
         headers = {"Authorization": f"Bearer {access_token}"}
         listing = await self._get(
@@ -169,17 +170,27 @@ class GmailClient:
             if isinstance(mid, str):
                 ids.append(mid)
 
-        messages: list[GmailMessage] = []
-        for mid in ids:
-            try:
-                raw = await self._get(
-                    http, f"{_GMAIL_MESSAGES_URL}/{mid}", headers=headers, params={"format": "full"}
-                )
-            except GmailError:
-                _log.warning("gmail.message_fetch_failed", message_id=mid)
-                continue
-            messages.append(self.parse_message(raw))
-        return messages
+        # Fetch the per-message bodies concurrently (bounded) — sequentially, dozens of
+        # round trips add seconds that push a sync toward the edge timeout. Order is
+        # preserved by gather; a failed fetch drops just that message.
+        sem = asyncio.Semaphore(max(1, concurrency))
+
+        async def _fetch(mid: str) -> GmailMessage | None:
+            async with sem:
+                try:
+                    raw = await self._get(
+                        http,
+                        f"{_GMAIL_MESSAGES_URL}/{mid}",
+                        headers=headers,
+                        params={"format": "full"},
+                    )
+                except GmailError:
+                    _log.warning("gmail.message_fetch_failed", message_id=mid)
+                    return None
+            return self.parse_message(raw)
+
+        fetched = await asyncio.gather(*(_fetch(mid) for mid in ids))
+        return [m for m in fetched if m is not None]
 
     @staticmethod
     def parse_message(raw: dict[str, object]) -> GmailMessage:

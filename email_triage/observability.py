@@ -88,3 +88,57 @@ LLM_IN_FLIGHT: UpDownCounter = logfire.metric_up_down_counter(
     unit="1",
     description="In-flight LLM calls at this instant.",
 )
+
+# ---------------------------------------------------------------------------
+# Agent telemetry (Plan 42) — the 6 KPIs from the OpenTelemetry-for-agents blog,
+# emitted for the genuine agents (Plan 43 diagnosis, Plan 44 tuning). Labels stay
+# low-cardinality: `agent` (diagnosis|tuning), `tool` (curated tool names), `outcome`
+# (ok|error), `model`. Wiring + the `instrument_agent_run` helper: services/agent_telemetry.py.
+# ---------------------------------------------------------------------------
+
+# 1. Token Usage per Agent Run
+AGENT_INPUT_TOKENS: Histogram = logfire.metric_histogram(
+    "agent.input_tokens",
+    unit="1",
+    description="Input tokens consumed by one agent run, by agent.",
+)
+AGENT_OUTPUT_TOKENS: Histogram = logfire.metric_histogram(
+    "agent.output_tokens",
+    unit="1",
+    description="Output tokens produced by one agent run, by agent.",
+)
+
+# 2. Tool Call Success Rate
+TOOL_CALLS_TOTAL: Counter = logfire.metric_counter(
+    "agent.tool_calls_total",
+    unit="1",
+    description="Agent tool invocations, labeled by tool and outcome (ok|error).",
+)
+
+# 3. LLM Latency Distribution (wall-clock of one agent run — model calls + tool time)
+AGENT_LLM_LATENCY_MS: Histogram = logfire.metric_histogram(
+    "agent.llm.latency_ms",
+    unit="ms",
+    description="Wall-clock of a single agent.run (model requests + tool calls), by agent.",
+)
+
+# 4. Agent Loop Iterations (ReAct cycles ≈ model requests per run)
+AGENT_LOOP_ITERATIONS: Histogram = logfire.metric_histogram(
+    "agent.loop_iterations",
+    unit="1",
+    description="Model requests (ReAct cycles) in one agent run, by agent.",
+)
+
+# 5. Context Window Utilization (input tokens / model context window)
+CONTEXT_UTILIZATION: Histogram = logfire.metric_histogram(
+    "agent.context_utilization",
+    unit="ratio",
+    description="Input tokens / model context window (0-1), by agent and model.",
+)
+
+# 6. End-to-End Agent Latency (whole entry-point operation)
+AGENT_E2E_LATENCY_MS: Histogram = logfire.metric_histogram(
+    "agent.e2e.latency_ms",
+    unit="ms",
+    description="Total time from request to final response for a top-level agent, by agent.",
+)

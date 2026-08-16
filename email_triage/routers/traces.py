@@ -15,10 +15,12 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException
 
 from email_triage.deps import SettingsDep, TracesReadDep
-from email_triage.schemas import TraceChatRequest, TraceChatResponse
+from email_triage.schemas import TraceChatRequest, TraceChatResponse, TraceDiagnosis
 from email_triage.services.trace_agent import (
     LogfireQueryError,
     TraceChatService,
+    TraceDiagnosisService,
+    build_diagnosis_service,
     build_trace_chat_service,
 )
 
@@ -88,3 +90,61 @@ async def traces_chat(
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     return TraceChatResponse(reply=reply)
+
+
+@lru_cache(maxsize=1)
+def _cached_diagnosis_service(
+    groq_model: str, groq_api_key: str, read_token: str, base_url: str | None
+) -> TraceDiagnosisService:
+    return build_diagnosis_service(
+        groq_model=groq_model,
+        groq_api_key=groq_api_key,
+        read_token=read_token,
+        base_url=base_url,
+    )
+
+
+def get_trace_diagnosis_service(settings: SettingsDep) -> TraceDiagnosisService | None:
+    """Resolve the diagnosis service, or None when the read token isn't configured (→ 503).
+
+    Overridden in tests with a fake service (no Groq, no Logfire network)."""
+    if not settings.logfire_read_token:
+        return None
+    return _cached_diagnosis_service(
+        settings.groq_model,
+        settings.groq_api_key,
+        settings.logfire_read_token,
+        settings.logfire_read_base_url,
+    )
+
+
+TraceDiagnosisServiceDep = Annotated[
+    TraceDiagnosisService | None, Depends(get_trace_diagnosis_service)
+]
+
+
+@router.post("/{trace_id}/diagnose", response_model=TraceDiagnosis)
+async def diagnose_trace(
+    trace_id: str,
+    ctx: TracesReadDep,
+    service: TraceDiagnosisServiceDep,
+) -> TraceDiagnosis:
+    if service is None:
+        raise HTTPException(status_code=503, detail="Trace diagnosis is not configured")
+
+    tenant_id = str(ctx.tenant_id)
+    try:
+        owns = await service.owns_trace(tenant_id, trace_id)
+    except LogfireQueryError as exc:
+        # Bad trace-id shape → client error; anything else → Logfire unavailable.
+        detail = str(exc)
+        status = 422 if "trace id" in detail else 503
+        raise HTTPException(status_code=status, detail=detail) from exc
+
+    if not owns:
+        raise HTTPException(status_code=404, detail="Trace not found for this workspace")
+
+    try:
+        return await service.diagnose(tenant_id, trace_id)
+    except LogfireQueryError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
