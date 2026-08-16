@@ -1,0 +1,59 @@
+name: Code Review
+
+# AI-assisted code review on every pull request, using the official
+# Claude Code GitHub Action (built on the Claude Agent SDK) driving the
+# repo-local skill in .claude/skills/review-pr/. See docs/CODE-REVIEW.md.
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+
+# Cancel an in-flight review when the PR gets new commits.
+concurrency:
+  group: code-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    # Skip drafts; the action also skips PRs it judges not to need a review.
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read        # read the code
+      pull-requests: write  # post inline review comments
+      issues: read
+      id-token: write       # required for the action's default GitHub App auth
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0    # full history so the skill can diff against the base
+
+      - uses: anthropics/claude-code-action@v1
+        # Route Claude Code through OpenRouter's Anthropic-compatible endpoint
+        # ("Anthropic Skin"). ANTHROPIC_API_KEY MUST be "" (empty, not unset) so
+        # Claude Code sends the bearer token instead of falling back to
+        # api.anthropic.com. See docs/CODE-REVIEW.md.
+        env:
+          ANTHROPIC_BASE_URL: https://openrouter.ai/api
+          ANTHROPIC_AUTH_TOKEN: ${{ secrets.OPENROUTER_API_KEY }}
+          ANTHROPIC_API_KEY: ""
+          # Remap Claude Code's quick/subagent tier to an OpenRouter slug too.
+          ANTHROPIC_DEFAULT_HAIKU_MODEL: anthropic/claude-haiku-4.5
+        with:
+          # The action requires this input for its own auth check; we pass the
+          # OpenRouter key so it's satisfied. Real routing happens via env above.
+          anthropic_api_key: ${{ secrets.OPENROUTER_API_KEY }}
+          # Invoke the repo-local skill (.claude/skills/review-pr/SKILL.md).
+          prompt: >-
+            /review-pr
+            --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}
+            --base ${{ github.event.pull_request.base.ref }}
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment"
+            --model anthropic/claude-haiku-4.5
+            --max-turns 30
+          # OpenRouter model slug (Haiku, for cheap smoke-testing). VERIFY the exact
+          # slug at https://openrouter.ai/anthropic — if it 404s, try
+          # anthropic/claude-3.5-haiku. Bump to anthropic/claude-sonnet-4.5 (or the
+          # current sonnet/opus slug) for real review quality.

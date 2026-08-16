@@ -1,6 +1,6 @@
 # 43. Agente de diagnóstico de trazas — loop multi-paso + veredicto estructurado
 
-**Status:** 📋 proposed (planificación en detalle)
+**Status:** 🚧 implemented (pending human review/merge)
 **Estimate:** ~5 hrs
 **Depends on:** Plan 31 (trace-debug agent + `LogfireQueryApiClient` + aislamiento estructural), Plan 33 (baggage `tenant_id` en spans), Plan 25 (Groq/pydantic-ai).
 **Habilita:** Plan 44 (copiloto de tuning consume el diagnóstico), Plan 42 (este agente es el sujeto de las 6 métricas).
@@ -267,12 +267,13 @@ Reusa `FakeLogfireClient`, `TestModel`/`FunctionModel`, y el andamiaje HTTP de `
 
 ## Done when
 
-- [ ] `POST /workspaces/{tid}/traces/{trace_id}/diagnose` devuelve un `TraceDiagnosis` estructurado
-- [ ] El agente decide dinámicamente qué tools llamar (loop de nº variable; test de ≥2 tool-calls)
-- [ ] Aislamiento estructural: toda query lleva el predicado `tenant_id` (test)
-- [ ] `owns_trace` bloquea diagnosticar una traza de otro tenant (404); `traces:read` gatea (403)
-- [ ] `suggested_fix_kind` + `target_slug` cubren lo que Plan 44 necesita; `none` es válido
-- [ ] El agente es read-only (no escribe config ni Logfire)
-- [ ] `diagnose` aísla el `agent.run` como seam para `instrument_agent_run` (Plan 42)
-- [ ] Ningún test toca Logfire/Groq/red (fake client + `TestModel`/`FunctionModel`) — `CLAUDE.md`
-- [ ] `make check` verde (ruff + pyright 0 + tests)
+- [x] `POST /workspaces/{tid}/traces/{trace_id}/diagnose` devuelve un `TraceDiagnosis` estructurado
+- [x] El agente decide dinámicamente qué tools llamar (loop de nº variable; test de ≥2 tool-calls)
+- [x] Aislamiento estructural: toda query lleva el predicado `tenant_id` (test)
+- [x] `owns_trace` bloquea diagnosticar una traza de otro tenant (404); `traces:read` gatea (403)
+- [x] `suggested_fix_kind` + `target_slug` cubren lo que Plan 44 necesita; `none` es válido
+- [x] El agente es read-only (no escribe config ni Logfire)
+- [x] `diagnose` aísla el `agent.run` como seam para `instrument_agent_run` (Plan 42)
+- [x] Ningún test toca Logfire/Groq/red (fake client + `TestModel`/`FunctionModel`) — `CLAUDE.md`
+- [x] `make check` verde (ruff + pyright 0 + **247 tests**)
+- [ ] Validado con Groq real sobre una traza nueva (§5: salida estructurada + tools; con `TestModel` pasa, falta el modelo real)

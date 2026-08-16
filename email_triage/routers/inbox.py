@@ -7,6 +7,7 @@ of today's unread emails is mapped to a ``TriageRequest`` and classified. Emails
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 from email.utils import parseaddr
 
@@ -46,17 +47,17 @@ _log = structlog.get_logger()
 router = APIRouter(prefix="/gmail", tags=["gmail"])
 
 _MAX_SUBJECT = 500
-_MAX_BODY = 20_000
 _FALLBACK_SENDER = "unknown@example.com"
 
 
-def _to_triage_request(msg: GmailMessage) -> TriageRequest:
+def _to_triage_request(msg: GmailMessage, body_chars: int) -> TriageRequest:
     """Map a Gmail message to the strict TriageRequest schema, coercing edge cases
-    (display-name senders, empty bodies) so one odd email never 422s the batch."""
+    (display-name senders, empty bodies) so one odd email never 422s the batch. The body
+    is truncated to ``body_chars`` — enough to classify + draft without blowing Groq's TPM."""
     _, addr = parseaddr(msg.sender)
     sender = addr or _FALLBACK_SENDER
     subject = (msg.subject or "(no subject)")[:_MAX_SUBJECT]
-    body = (msg.body or msg.subject or " ").strip()[:_MAX_BODY] or " "
+    body = (msg.body or msg.subject or " ").strip()[: max(1, body_chars)] or " "
     try:
         return TriageRequest(subject=subject, sender=sender, body=body)
     except ValidationError:
@@ -118,7 +119,11 @@ async def sync(
             async with httpx.AsyncClient() as http:
                 access_token = await gmail.refresh_access_token(http, refresh_token)
                 messages = await gmail.list_today(
-                    http, access_token, query, settings.gmail_sync_max_results
+                    http,
+                    access_token,
+                    query,
+                    settings.gmail_sync_max_results,
+                    settings.gmail_sync_concurrency,
                 )
         except GmailAuthError as exc:
             span.set_attribute("error.kind", "gmail_auth")
@@ -134,32 +139,59 @@ async def sync(
         # Reuse the tenant's live triage service ("published wins" / dynamic / fallback).
         svc = await get_triage_service(TenantContext(tenant_id=ctx.tenant_id))
 
-        items: list[InboxItem] = []
-        errors = 0
-        with logfire.set_baggage(tenant_id=str(ctx.tenant_id)):
-            for msg in messages:
-                try:
-                    result = await svc.triage(_to_triage_request(msg))
-                except LLMError:
-                    errors += 1
-                    _log.warning("gmail.triage_failed", message_id=msg.message_id)
-                    continue
-                items.append(
-                    InboxItem(
-                        message_id=msg.message_id,
-                        sender=msg.sender or _FALLBACK_SENDER,
-                        subject=msg.subject,
-                        received_at=msg.received_at,
-                        category=str(result.category),
-                        confidence=result.confidence,
-                        draft_reply=result.draft_reply,
-                        trace_id=result.trace_id,
-                    )
-                )
+        # Triage the emails concurrently (bounded). A failed triage drops just that email.
+        sem = asyncio.Semaphore(max(1, settings.gmail_sync_concurrency))
 
-        # Every message failing (with at least one present) signals the LLM is down —
-        # surface it instead of masking an outage as an empty inbox.
-        if messages and errors == len(messages):
+        async def _triage_one(msg: GmailMessage) -> InboxItem | None:
+            async with sem:
+                try:
+                    result = await svc.triage(
+                        _to_triage_request(msg, settings.gmail_sync_body_chars)
+                    )
+                except LLMError:
+                    _log.warning("gmail.triage_failed", message_id=msg.message_id)
+                    return None
+            return InboxItem(
+                message_id=msg.message_id,
+                sender=msg.sender or _FALLBACK_SENDER,
+                subject=msg.subject,
+                received_at=msg.received_at,
+                category=str(result.category),
+                confidence=result.confidence,
+                draft_reply=result.draft_reply,
+                trace_id=result.trace_id,
+            )
+
+        # Deadline-bounded: whatever finishes within the budget is returned; the rest are
+        # cancelled. Groq throttling (large inboxes / TPM limits) can make a full sync take
+        # minutes, and Cloudflare kills the request at ~100s (524) — returning partial keeps
+        # the endpoint responsive instead of dying with nothing.
+        items: list[InboxItem] = []
+        timed_out = False
+        if messages:
+            with logfire.set_baggage(tenant_id=str(ctx.tenant_id)):
+                tasks = [asyncio.create_task(_triage_one(msg)) for msg in messages]
+                try:
+                    await asyncio.wait(tasks, timeout=settings.gmail_sync_budget_seconds)
+                finally:
+                    for t in tasks:
+                        if not t.done():
+                            t.cancel()
+
+            completed = 0
+            for t in tasks:  # original order preserved
+                if t.done() and not t.cancelled() and t.exception() is None:
+                    completed += 1
+                    if t.result() is not None:
+                        items.append(t.result())  # type: ignore[arg-type]  # None filtered above
+            timed_out = completed < len(messages)
+
+        span.set_attribute("gmail.triaged.count", len(items))
+        span.set_attribute("gmail.sync.timed_out", timed_out)
+
+        # 503 only when every message actually ran and all failed (real LLM outage) — not
+        # when the budget cut things short (that returns whatever we have, even if empty).
+        if messages and not timed_out and not items:
             span.set_attribute("error.kind", "llm_unavailable")
             raise HTTPException(status_code=503, detail="Triage service unavailable")
 

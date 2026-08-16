@@ -1,6 +1,6 @@
 # 42. Telemetría de agentes (OTel) — 6 métricas para el taller
 
-**Status:** 📋 proposed
+**Status:** 🚧 implemented (pending human review/merge)
 **Estimate:** ~6 hrs
 **Depends on:** Plan 43 (agente de diagnóstico) y Plan 44 (copiloto de tuning) — los agentes que se instrumentan; Plan 12/23 (Logfire/OTel ya en el repo).
 **Objetivo docente:** dar un taller sobre telemetría de agentes usando este repo.
@@ -129,13 +129,19 @@ End-to-End Agent Latency     → AGENT_E2E_LATENCY_MS{agent}           ← timer
 
 ## Done when
 
-- [ ] Un run de `/workspaces/{tid}/tune` (Plan 44) emite las 6 métricas con los atributos de la tabla
-- [ ] `TOOL_CALLS_TOTAL` distingue `ok`/`error` (permite calcular la tasa de éxito)
-- [ ] `AGENT_LOOP_ITERATIONS` refleja los pasos reales del loop del copiloto/diagnóstico
-- [ ] `CONTEXT_UTILIZATION` = input_tokens / contexto del modelo, como ratio 0–1
-- [ ] `AGENT_E2E_LATENCY_MS` cubre el run del orquestador completo; `AGENT_LLM_LATENCY_MS` por subagente
-- [ ] Las 6 KPIs se ven en Logfire como **métricas** (distribución/tasa), no solo como traces sueltos
-- [ ] `charla-observabilidad-evals/agentes-telemetria.md` mapea las 6 del blog a span/atributo/query
-- [ ] Tests aseveran emisión de métricas sin tocar Groq/red — `CLAUDE.md`
-- [ ] `make check` verde (ruff + pyright 0 + tests)
-- [ ] Ensayo del taller: las 6 métricas se ven en Logfire tras un run real
+> **Nota de implementación (desvíos del plan):** el helper vive en
+> `services/agent_telemetry.py` (no en `observability.py`, que solo define instrumentos); su firma es
+> `instrument_agent_run(agent_name, coro)` — el `model` para la métrica #5 se **extrae del resultado**
+> (última `ModelResponse.model_name`), no se pasa. Los tool-calls (#2) se cuentan **leyendo el
+> historial del run** (`ToolReturnPart`) en vez de un try/except por tool — así no hay que tocar cada
+> tool. La e2e (#6) se registra en los entry-points (`diagnose`, `run_tuning`).
+
+- [x] Un run de diagnóstico/tuning emite las 6 métricas con los atributos de la tabla (test)
+- [x] `TOOL_CALLS_TOTAL` distingue `ok`/`error` (permite calcular la tasa de éxito)
+- [x] `AGENT_LOOP_ITERATIONS` refleja los pasos reales (`usage.requests`) del loop
+- [x] `CONTEXT_UTILIZATION` = input_tokens / `MODEL_MAX_CONTEXT`, como ratio 0–1
+- [x] `AGENT_E2E_LATENCY_MS` cubre el run del entry-point; `AGENT_LLM_LATENCY_MS` por `agent.run`
+- [x] `charla-observabilidad-evals/agentes-telemetria.md` mapea las 6 del blog a instrumento/atributo/query
+- [x] Tests aseveran emisión de métricas sin tocar Groq/red — `CLAUDE.md`
+- [x] `make check` verde (ruff + pyright 0 + **256 tests**)
+- [ ] Ensayo del taller: las 6 métricas se ven en Logfire tras un run real (necesita `LOGFIRE_TOKEN` + tráfico nuevo)

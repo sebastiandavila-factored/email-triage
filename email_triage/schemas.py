@@ -87,6 +87,110 @@ class TraceChatResponse(BaseModel):
     reply: str
 
 
+# ── Trace diagnosis (Plan 43) ─────────────────────────────────────────────────
+
+
+class EvidenceSpan(BaseModel):
+    """One span cited as evidence. The agent fills this ONLY from data the tools returned
+    (the system prompt forbids inventing)."""
+
+    span_name: str
+    level: int | None = None  # Logfire level (9=info, 13=warn, 17=error)
+    duration_ms: float | None = None
+    note: str = Field(default="", max_length=280)  # e.g. "category=refunds confidence=0.42"
+
+
+FixKind = Literal["add_counter_example", "tweak_category", "adjust_examples", "none"]
+
+
+def _empty_evidence() -> list[EvidenceSpan]:
+    return []
+
+
+class TraceDiagnosis(BaseModel):
+    """Structured verdict on why one triage behaved as it did (Plan 43). ``suggested_fix_kind``
+    and ``target_slug`` are the hooks the tuning copilot (Plan 44) acts on."""
+
+    root_cause: str = Field(min_length=1, max_length=1_000)
+    evidence: list[EvidenceSpan] = Field(default_factory=_empty_evidence, max_length=10)
+    confidence: float = Field(ge=0.0, le=1.0)
+    suggested_fix_kind: FixKind
+    target_slug: str | None = None
+    rationale: str = Field(min_length=1, max_length=1_000)
+
+
+# ── Triage tuning copilot (Plan 44) ───────────────────────────────────────────
+
+
+class EvalScore(BaseModel):
+    """Result of re-classifying the check-set (flagged email + hold-out few-shots) against
+    the current draft prompt."""
+
+    target_fixed: bool
+    target_predicted: str
+    regressions: int
+    checked: int
+
+
+class TuningProposal(BaseModel):
+    """What the copilot did to the DRAFT and how it scored. The human publishes (Plan 26);
+    the copilot never does. Authoritative fields (`changes`, scores, `cycles`) are recorded by
+    the harness, not self-reported by the model."""
+
+    diagnosis: TraceDiagnosis | None = None
+    changes: list[str]
+    score_before: EvalScore | None = None
+    score_after: EvalScore | None = None
+    gate_passed: bool
+    cycles: int
+    recommendation: str
+
+
+class TuneRequest(BaseModel):
+    trace_id: str = Field(min_length=1, max_length=64)
+    email: TriageRequest
+    expected_category: str = Field(min_length=1, max_length=100)
+
+
+# ── Voice report (Plan 41) ─────────────────────────────────────────────────────
+
+
+class ReportSummary(BaseModel):
+    """LLM summary of the inbox for a spoken briefing (prose only; counts are harness-computed)."""
+
+    headline: str = Field(min_length=1, max_length=300)
+    themes: list[str] = Field(max_length=8)
+    urgent: list[str] = Field(max_length=8)
+
+
+class VoiceScriptSection(BaseModel):
+    heading: str
+    body: str
+
+
+class VoiceScript(BaseModel):
+    opening: str
+    sections: list[VoiceScriptSection] = Field(max_length=10)
+    closing: str
+
+
+class CategoryCount(BaseModel):
+    category: str
+    count: int
+
+
+class VoiceReport(BaseModel):
+    script: VoiceScript
+    headline: str
+    by_category: list[CategoryCount]  # harness-computed (exact), not from the LLM
+    total: int
+    audio_url: str | None = None  # contract ready for TTS (Plan 41 is script-only)
+
+
+class VoiceReportRequest(BaseModel):
+    items: list[InboxItem] = Field(max_length=100)
+
+
 # ── Gmail ingestion (Plan 37) ─────────────────────────────────────────────────
 
 

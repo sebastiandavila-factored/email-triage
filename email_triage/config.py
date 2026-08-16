@@ -40,13 +40,27 @@ class Settings(BaseSettings):
     # google_client_id/secret with a *separate* redirect URI (register it in Google
     # Cloud Console). gmail_token_enc_key is a Fernet key (TokenCipher.generate_key());
     # without it the Gmail endpoints return 503 (feature not configured). gmail_sync_max_results
-    # bounds how many of today's emails a single sync triages (Plan 37).
+    # bounds how many emails a single sync triages (Plan 37) — kept low (15) so a full sync
+    # stays well under Cloudflare's ~100s edge timeout even at the default concurrency (Plan 41).
     gmail_redirect_uri: str = "http://localhost:8000/gmail/callback"
     gmail_token_enc_key: str | None = None
-    gmail_sync_max_results: int = 25
+    gmail_sync_max_results: int = 15
     # Upper bound (in days) for the sync's look-back window (Plan 40). A wider window widens
     # *which* emails qualify, not *how many* are triaged — that stays capped by max_results.
     gmail_sync_max_days: int = 30
+    # Max concurrent Gmail fetches + triage calls per sync (Plan 41). Running N emails
+    # sequentially (a Gmail get + a Groq triage each) blows past Cloudflare's ~100s edge
+    # timeout → 524; bounded concurrency keeps a full sync well under it. Kept modest to
+    # respect Groq rate limits.
+    gmail_sync_concurrency: int = 5
+    # Chars of the email body sent to the LLM per triage (Plan 41). Full bodies (up to 20k
+    # chars) are token-heavy and trip Groq's per-minute token limit → heavy throttling; the
+    # gist needed to classify + draft fits in far less.
+    gmail_sync_body_chars: int = 2000
+    # Wall-clock budget for the triage phase of a sync (Plan 41). On expiry the endpoint
+    # returns whatever finished so far instead of running past Cloudflare's ~100s edge
+    # timeout (524). Keep it comfortably under 100s.
+    gmail_sync_budget_seconds: float = 80.0
     session_secret: str = _INSECURE_SESSION_SECRET
     access_token_expire_minutes: int = 30
     frontend_url: str = "http://localhost:5173"

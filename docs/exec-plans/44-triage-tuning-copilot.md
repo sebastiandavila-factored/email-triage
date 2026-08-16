@@ -1,134 +1,143 @@
-# 44. Copiloto de tuning de triage — orquestador (diagnóstico → propuesta → eval)
+# 44. Copiloto de tuning de triage — orquestador (diagnóstico → propuesta → check-set)
 
-**Status:** 📋 proposed
+**Status:** 🚧 implemented (pending human review/merge)
 **Estimate:** ~8 hrs
-**Depends on:** Plan 43 (diagnóstico de trazas), Plan 26 (few-shot + draft→preview→publish + eval-gate), Plan 27 (semántica de las tools triage-studio), Plan 23/`evals/` (suite de evals), Plan 25 (Groq/pydantic-ai).
-**Sujeto principal de:** Plan 42 (aquí se ven las 6 métricas *completas y honestas*).
+**Depends on:** Plan 43 (diagnóstico de trazas), Plan 26 (few-shot + draft + `compile_draft`), Plan 25 (`LLMService` dinámico), Plan 21 (RBAC `prompt:publish`).
+**Sujeto principal de:** Plan 42 (aquí se ven las 6 métricas completas: tool-calls + iterations reales).
 
 ## Intent
 
-La feature genuinamente **orquestador + subagentes/tools** del taller. Dada una triage que el
-owner marca como **mal clasificada**, el copiloto:
+La feature genuinamente **orquestador + tools**. Dada una triage que el owner marca como **mal
+clasificada**, el copiloto: diagnostica (Plan 43) → propone un cambio al **borrador** (contra-ejemplo
+few-shot o ajuste de descripción de categoría) vía los servicios del Studio → **re-clasifica un
+check-set** contra el borrador → itera hasta que el correo marcado clasifica bien sin regresiones (o
+agota el tope de requests). Devuelve un `TuningProposal`; **el publish lo hace el humano** (Plan 26).
 
-1. **Diagnostica** la causa raíz (llama a Plan 43).
-2. **Propone un cambio de config** al **borrador** del workspace vía las tools del Studio (Plan
-   26/27): agregar un *counter-example* few-shot, ajustar la descripción de una categoría, etc.
-3. **Corre evals** (infra `evals/`) sobre el borrador.
-4. **Lee el score** y **decide**: si el eval-gate no pasa (o empeora otra cosa), **refina y
-   reevalúa** — loop — hasta pasar el gate o agotar el tope.
-5. **Se detiene** y presenta una `TuningProposal` (diagnóstico + cambios al borrador + scores
-   antes/después). **El publish lo hace el humano** por el flujo existente (Plan 26).
+Es genuinamente agéntico (por eso es el sujeto de Plan 42): el nº de ciclos refinar↔chequear **no se
+conoce de antemano** y el modelo decide qué tool llamar → *tool-call success rate* (#2) e *iterations*
+(#4) reales, además de tokens/latencia/contexto por run.
 
-Por qué es *genuinamente agéntico* (y por eso ilumina las 6 métricas de verdad): el nº de ciclos
-refinar↔evaluar **es impredecible** y el modelo decide **qué tool llamar y cuántas veces**
-(`diagnose`, `add_counter_example`, `tweak_category`, `run_eval`, `preview`). Eso produce
-*tool-call success rate* (#2) e *iterations* (#4) reales, además de tokens/latencia/contexto por run.
+## Hallazgo que definió el diseño del "eval"
+
+El plan original decía `run_eval(suite="regression")`. Al implementar se vio que **no hay un eval
+por-tenant corrible**:
+- El `PromptGate` inyectable de `publish` (evalúa el borrador → `accuracy/macro_f1`) **no está
+  cableado en producción** (todos usan `PromptStudioService()` sin gate); solo se usa en tests.
+- `evals.run(...)` es **CLI + golden dataset + camino legacy** (5 categorías frozen, enum).
+- Un tenant del Studio tiene **categorías arbitrarias**; sus únicos datos etiquetados son sus
+  few-shots (señal de entrenamiento, no un hold-out).
+
+**Decisión (con el humano):** el loop mide con un **check-set de regresión sobre el borrador** —
+re-clasificar con el prompt del borrador (a) el **correo marcado** contra su categoría esperada, y
+(b) unos **few-shots positivos hold-out** del tenant como guardia de regresión. Factible con lo que
+hay (`compile_draft` + un `LLMService` dinámico), evita over-fit, y es honesto.
+
+## Nota de contrato
+
+La **traza no trae el cuerpo del correo** (privacidad: los spans guardan *chars*, no contenido). Por
+eso `/tune` recibe el **email** (subject/sender/body) y su **categoría esperada** en el body, más el
+`trace_id` para el diagnóstico. El owner los tiene: viene de una triage que acaba de ver.
 
 ## Prior reading
 
-- [docs/exec-plans/43-trace-diagnosis-agent.md](43-trace-diagnosis-agent.md) — `TraceDiagnosisService.diagnose` (el sub-paso de diagnóstico).
-- [services/prompt_studio.py](../../email_triage/services/prompt_studio.py), [services/triage_config.py](../../email_triage/services/triage_config.py), [db/repos/examples.py](../../email_triage/db/repos/examples.py) — draft de few-shot / template / categorías (Plan 26).
-- [mcp_server.py](../../email_triage/mcp_server.py) — semántica de `add_example`/`create_category`/`preview_prompt`/`list_prompt_versions` (Plan 27); aquí se envuelven como tools internas ligadas al tenant.
-- [evals/run_evals.py](../../email_triage/../evals/run_evals.py), `Makefile` (`make eval`, `eval-quick`, `eval-regression`) — cómo correr la suite y leer el score.
-- Gobernanza (Plan 26): "published wins if present"; el **publish es irreversible** → se mantiene humano.
+- [docs/exec-plans/43-trace-diagnosis-agent.md](43-trace-diagnosis-agent.md) — `TraceDiagnosisService.diagnose` (sub-paso de diagnóstico) y `build_diagnosis_service`.
+- [services/prompt_studio.py](../../email_triage/services/prompt_studio.py) — `add_example(kind="negative", …)`, `compile_draft` (prompt + allowed_slugs), la ausencia de gate en prod.
+- [services/triage_config.py](../../email_triage/services/triage_config.py) — `update_category(…, description=…)`; slug inmutable.
+- [db/repos/categories.py](../../email_triage/db/repos/categories.py) — `get_by_slug`, `list_for_tenant`; [db/repos/examples.py](../../email_triage/db/repos/examples.py) — `list_for_category`.
+- [deps.py](../../email_triage/deps.py) — `_build_service(prompt, allowed_slugs)`: cómo se arma un `LLMService` dinámico desde un prompt compilado (reusado por el clasificador).
 
-## Scope
+## Diseño implementado
 
-**Incluido:**
-- `services/tuning/` (**nuevo**): orquestador `Agent` con tools que envuelven servicios existentes,
-  **todas ligadas al `tenant_id` del contexto** (nunca del modelo):
-  - `diagnose(trace_id) -> TraceDiagnosis` → Plan 43.
-  - `add_counter_example(slug, subject, sender, body)` / `add_example(...)` → borrador (Plan 26).
-  - `tweak_category(slug, description)` → borrador de categoría.
-  - `preview_prompt() -> str` → XML compilado del borrador.
-  - `run_eval(suite="regression"|"quick") -> EvalScore` → corre un subconjunto rápido de la suite.
-  - El system prompt guía: diagnosticar → proponer el fix del `suggested_fix_kind` → evaluar →
-    iterar hasta pasar el gate o `max_cycles`. `usage_limits` acota el loop.
-- `schemas.py`: `TuningProposal` (diagnóstico, lista de cambios al borrador, `score_before`,
-  `score_after`, `gate_passed`, `recommendation`, `cycles`).
-- `routers/tuning.py` (**nuevo**): `POST /workspaces/{tid}/tune` con `{trace_id}` (scope
-  `prompt:publish` o nuevo `prompt:tune`) → corre el orquestador → `TuningProposal`. **No publica.**
-- Tests con `TestModel`/`FunctionModel` + fakes (diagnóstico fake, eval runner fake): el orquestador
-  itera, llama tools, produce `TuningProposal`, **nunca publica**, respeta aislamiento, y el caso
-  "gate no pasa tras `max_cycles`" cierra limpio.
-
-**Fuera de scope:**
-- **Publish automático** — jamás; el borrador queda listo y el humano publica por Plan 26 (acción
-  irreversible ⇒ humano en el loop).
-- UI del copiloto (panel/botón "Sugerir mejora") → plan de frontend aparte.
-- Instrumentos de métrica de las 6 KPIs → Plan 42 (este es su sujeto principal).
-- Auto-tuning masivo/programado (v2).
+- **`services/tuning.py`** (nuevo):
+  - **Orquestador** `build_tuning_agent(model) -> Agent[TuningDeps, str]` con tools
+    `diagnose`, `add_counter_example`, `tweak_category`, `preview_prompt`, `run_check`; system prompt
+    que lo guía (diagnosticar → fix mínimo → chequear → iterar). Output `str` (recomendación); el
+    `TuningProposal` lo **arma el harness** desde un `TuningJournal` (cambios/scores/cycles
+    autoritativos, no auto-reportados por el modelo). `UsageLimits(request_limit=12)` acota el loop.
+  - **Tools** ligadas al `tenant_id` de `TuningDeps` (no del modelo): las escrituras abren sesión del
+    factory y van **solo al borrador**; un slug de otro workspace no resuelve (`get_by_slug` → error
+    string, sin escritura). `run_check` compila el borrador y clasifica target + hold-out.
+  - **Colaboradores inyectables:** `DiagnosisProvider` (Plan 43) y `DraftClassifier` (Protocol).
+    Producción: `LLMDraftClassifier` (arma `LLMService` desde el borrador). Tests: fakes.
+  - **`TuningRunner`** (agent + diagnosis + classifier) con `run(...)`: carga el hold-out y corre
+    `run_tuning`. `build_tuning_runner(...)` cablea la versión de producción.
+- **`schemas.py`:** `EvalScore` (`target_fixed`, `target_predicted`, `regressions`, `checked`),
+  `TuningProposal` (`diagnosis?`, `changes`, `score_before?`, `score_after?`, `gate_passed`, `cycles`,
+  `recommendation`), `TuneRequest` (`trace_id`, `email`, `expected_category`).
+- **`routers/tuning.py`:** `POST /workspaces/{tid}/tune` (scope `prompt:publish`), dep
+  `get_tuning_runner` (→ `None`/503 si falta el read token de Logfire), mapeo de errores
+  422/404/503. **No publica.**
+- **`main.py`:** `include_router(tuning.router)`.
 
 ## Flujo de `POST /workspaces/{tid}/tune`
 
 ```
-span "tuning.run"  (tenant_id en baggage)                 ← e2e latency (#6)
-  Agent ORQUESTADOR.run("mejorá la config para arreglar la triage {trace_id}")  ← loop (#4, tool-calls #2)
-    → diagnose(trace_id)                    (Plan 43: causa raíz + suggested_fix_kind)
-    → run_eval(quick)                       (score_before)
-    ↺ hasta gate o max_cycles:
-        → add_counter_example(...) | tweak_category(...)   (escribe al BORRADOR)
-        → preview_prompt()                                 (verifica el XML)
-        → run_eval(quick|regression)                       (score_after; decide iterar o parar)
-  return TuningProposal(diagnosis, changes, score_before, score_after, gate_passed, cycles)
-  # el humano revisa y publica por el flujo de Plan 26
+Agent ORQUESTADOR.run(...)  usage_limits(12)            ← loop (#4, tool-calls #2)
+  → diagnose()               (Plan 43: causa raíz + suggested_fix_kind + target_slug)
+  ↺ hasta target_fixed ∧ regressions=0, o max requests:
+      → add_counter_example(slug, subject, body)  |  tweak_category(slug, description)   [→ BORRADOR]
+      → preview_prompt()            (opcional: ver el XML)
+      → run_check()                 compile_draft → clasificar target + hold-out → EvalScore
+  → recomendación (str)
+TuningProposal(diagnosis, changes, score_before, score_after, gate_passed, cycles, recommendation)
+# el humano revisa y publica por Plan 26
 ```
 
 ## Concrete changes
 
 | Archivo | Cambio |
 |---|---|
-| `email_triage/services/tuning/__init__.py` | **nuevo** — `run_tuning(tenant_id, trace_id) -> TuningProposal` |
-| `email_triage/services/tuning/agent.py` | **nuevo** — orquestador + system prompt + `usage_limits` |
-| `email_triage/services/tuning/tools.py` | **nuevo** — `diagnose`/`add_counter_example`/`tweak_category`/`preview_prompt`/`run_eval` (envuelven servicios existentes, ligadas al tenant) |
-| `email_triage/schemas.py` | `TuningProposal`, `EvalScore` |
-| `email_triage/routers/tuning.py` | **nuevo** — `POST /workspaces/{tid}/tune` |
+| `email_triage/services/tuning.py` | **nuevo** — orquestador, tools, journal, `DraftClassifier`, `TuningRunner`, `build_tuning_runner`, `load_holdout` |
+| `email_triage/schemas.py` | `EvalScore`, `TuningProposal`, `TuneRequest` |
+| `email_triage/routers/tuning.py` | **nuevo** — `POST /workspaces/{tid}/tune` + dep con cache |
 | `email_triage/main.py` | `include_router(tuning.router)` |
-| `email_triage/deps.py` | (si aplica) scope `prompt:tune` |
-| `tests/test_tuning_copilot.py` | **nuevo** — loop, tools, no-publish, aislamiento, gate-falla |
+| `tests/test_tuning_copilot.py` | **nuevo** — 7 tests (ver abajo) |
 | `docs/features/44-*` | doc |
+
+## Tests (`tests/test_tuning_copilot.py`, sin red)
+
+`FunctionModel` guiona la secuencia de tools; `FakeDiagnosis`/`FakeClassifier` stubean Groq/Logfire;
+las ediciones del borrador corren contra **SQLite sembrado** (tools reales):
+
+- fix del target + edición real del borrador + **nunca publica** (no hay versión activa; hay un
+  ejemplo `negative` en `refunds`).
+- gate falla cuando el target no queda arreglado.
+- **regresión de hold-out** bloquea el gate (target ok pero un few-shot positivo se rompe).
+- slug inexistente → tool devuelve error, **sin escritura** ni cambio registrado.
+- endpoint: 503 sin token, 403 miembro (`prompt:publish`), 200 owner happy-path.
 
 ## Design decisions
 
 | Decisión | Alternativa descartada | Razón |
 |---|---|---|
-| Orquestador dinámico (loop) | Workflow determinista | El nº de ciclos refinar↔evaluar es impredecible; **aquí sí** se justifica el agente |
-| Delegar el diagnóstico a Plan 43 | Un mega-agente que también lee trazas | Separación de responsabilidades; el diagnóstico es reutilizable y read-only |
-| Escrituras solo al **borrador**; publish humano | Auto-publish al pasar el gate | Publish es irreversible; el humano decide (principio de acción irreversible → confirmación) |
-| Tools envuelven servicios existentes | Reimplementar la lógica del Studio | Cero duplicación; reusa Plan 26/27; aislamiento por tenant en un solo lugar |
-| Eval-gate como condición de parada | "Parar cuando el modelo crea que está bien" | Señal objetiva; evita over-fitting a un caso; usa la suite de regresión |
-| `run_eval(quick)` para iterar, `regression` para confirmar | Correr la suite completa cada ciclo | Coste/latencia; el quick guía el loop, el regression valida antes de proponer |
+| Orquestador dinámico (loop) | Workflow determinista | El nº de ciclos refinar↔chequear es impredecible; aquí sí se justifica el agente |
+| Check-set (target + hold-out) sobre el borrador | `run_eval` sobre golden dataset / suite | No hay eval por-tenant; el golden es de las 5 frozen. Evita over-fit y es honesto |
+| Delegar el diagnóstico a Plan 43 | Un mega-agente que también lee trazas | Separación de responsabilidades; diagnóstico read-only y reutilizable |
+| `TuningProposal` armado por el harness (journal) | Que el modelo reporte cambios/scores | Autoritativo y no alucinable; telemetría limpia para Plan 42 |
+| Escrituras solo al **borrador**; sin tool de publish | Auto-publish al pasar el gate | Publish es irreversible → humano (principio de acción irreversible) |
+| Tools envuelven servicios existentes | Reimplementar la lógica del Studio | Cero duplicación; aislamiento por tenant en un solo lugar |
+| Diagnosis + classifier inyectables; edición real vs SQLite | Mockear todo | Tests exigen las tools reales de borrador; solo Groq/Logfire se stubean |
+| Reusar `prompt:publish` | Nuevo scope `prompt:tune` | Sin migración; quien publica puede tunear el borrador; el publish real sigue siendo humano |
 
 ## Risks / Open questions
 
-- **Coste/latencia del loop de evals:** cada ciclo corre evals. Usar `eval-quick` (sin judge) para
-  iterar y acotar con `max_cycles`/`usage_limits`; medir con Plan 42 (es el punto del taller).
-- **Over-fitting a un caso:** arreglar una triage no debe romper otras → validar contra la suite de
-  **regresión** antes de proponer; `TuningProposal.score_before/after` lo hace visible.
-- **Seguridad del publish:** nunca auto-publicar; test explícito de que el copiloto solo toca el
-  borrador y el endpoint no publica.
-- **Aislamiento:** toda tool fija `tenant_id` del contexto; test de que no puede tocar otro workspace.
-- **No-determinismo:** el loop es dinámico → tests con `FunctionModel` forzando la secuencia y
-  aseverando las tool-calls; fakes para diagnóstico y eval.
-- **`prompt:tune` vs `prompt:publish`:** decidir si el tuning necesita scope propio o reusa
-  `prompt:publish` (el publish real lo hace el humano igual).
-
-## Execution order
-
-1. Schemas `TuningProposal`/`EvalScore` (30 min).
-2. `tools.py`: envolver diagnose/add_counter_example/tweak_category/preview/run_eval, ligadas al tenant (150 min).
-3. `agent.py`: orquestador + system prompt + `usage_limits` (90 min).
-4. `run_tuning` + `routers/tuning.py` (+ scope) (60 min).
-5. Tests con `FunctionModel` + fakes: loop, no-publish, aislamiento, gate-falla (150 min).
-6. Doc `44-*`; `make check` verde.
+- **Coste/latencia del loop:** `run_check` hace 1 + N (hold-out) clasificaciones por ciclo. Acotado
+  por `request_limit` y `_HOLDOUT_LIMIT=5`; se mide con Plan 42 (es el punto del taller).
+- **Calidad con Groq real:** el orquestador corre con `FunctionModel`/fakes en tests; falta validar
+  con Groq real que sigue la guía (diagnosticar → fix mínimo → chequear) y no cicla.
+- **Hold-out = few-shots del tenant:** es una guardia de regresión, no un eval formal; documentarlo en
+  el taller. Si no hay few-shots positivos, el check-set es solo el target.
+- **Diagnóstico sin `owns_trace`:** el copiloto llama `diagnose` directo; el SQL del Plan 43 ya
+  inlinea el predicado de tenant, así que una traza de otro org devuelve vacío (sin fuga).
 
 ## Done when
 
-- [ ] `POST /workspaces/{tid}/tune {trace_id}` devuelve una `TuningProposal` con diagnóstico + cambios al borrador + scores antes/después
-- [ ] El orquestador itera refinar↔evaluar en un nº **variable** de ciclos hasta gate o `max_cycles`
-- [ ] Las tools escriben **solo al borrador**; el endpoint **no publica** (test explícito)
-- [ ] La validación usa la suite de regresión (no solo el caso puntual)
-- [ ] Toda tool fija `tenant_id` del contexto; test de aislamiento verde
-- [ ] Ningún test corre evals reales/Groq/red (fakes + `TestModel`/`FunctionModel`) — `CLAUDE.md`
-- [ ] `make check` verde (ruff + pyright 0 + tests)
-- [ ] Humano validó el flujo end-to-end sobre una triage marcada como errónea
+- [x] `POST /workspaces/{tid}/tune` devuelve `TuningProposal` (diagnóstico + cambios + scores antes/después)
+- [x] El orquestador itera con tool-calls reales; `cycles`/`changes`/scores los registra el harness
+- [x] Las tools escriben **solo al borrador**; el endpoint **no publica** (test: sin versión activa)
+- [x] Check-set: target contra categoría esperada + hold-out de few-shots como guardia de regresión
+- [x] Slug de otro workspace / inexistente → error, sin escritura (aislamiento)
+- [x] `prompt:publish` gatea (403 miembro); 503 sin Logfire configurado
+- [x] Ningún test toca Groq/Logfire/red (`FunctionModel` + fakes; borrador real vs SQLite) — `CLAUDE.md`
+- [x] `make check` verde (ruff + pyright 0 + **254 tests**)
+- [ ] Validado con Groq real end-to-end sobre una triage marcada como errónea
