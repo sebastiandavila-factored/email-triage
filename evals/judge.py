@@ -41,7 +41,7 @@ set verdict="assessable" and fill in all five scores. Always provide a one-line 
 
 
 class JudgeAgent:
-    def __init__(self, api_key: str, model: str = "llama-3.3-70b-versatile") -> None:
+    def __init__(self, api_key: str, model: str = "openai/gpt-oss-120b") -> None:
         groq_model = build_groq_model(model, api_key)
         self._agent: Agent[None, JudgeScore] = Agent(
             groq_model,

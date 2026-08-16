@@ -8,7 +8,7 @@ _INSECURE_SESSION_SECRET = "change-me-in-production"
 
 class Settings(BaseSettings):
     groq_api_key: str
-    groq_model: str = "llama-3.3-70b-versatile"
+    groq_model: str = "openai/gpt-oss-120b"
     api_key: str
     # Logfire Prompt Management label to resolve the triage system prompt from.
     # The in-code SYSTEM_PROMPT is the fallback if Logfire has no managed variable.

@@ -18,7 +18,7 @@ from email_triage.schemas import (
 from email_triage.services.groq import build_groq_model
 from email_triage.services.prompt_compiler import UNKNOWN_SLUG, render_email
 
-DEFAULT_MODEL: Final = "llama-3.3-70b-versatile"
+DEFAULT_MODEL: Final = "openai/gpt-oss-120b"
 
 SYSTEM_PROMPT: Final = """You are an email triage system for an e-commerce support inbox.
 
