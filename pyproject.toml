@@ -67,6 +67,14 @@ quote-style = "double"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+# Every test is auto-marked in tests/conftest.py: "e2e" if it drives the full app
+# or a real DB engine, "unit" otherwise. CI runs them as separate jobs
+# (`pytest -m unit` / `pytest -m e2e`). --strict-markers turns a typo into an error.
+addopts = "--strict-markers"
+markers = [
+    "unit: fast, isolated test with no app/DB fixtures",
+    "e2e: exercises the full app (TestClient) or a real DB engine",
+]
 
 [tool.pyright]
 include = ["email_triage", "tests"]

@@ -1,0 +1,63 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Re-audit weekly: catches CVEs disclosed against already-pinned deps between changes.
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    name: Vulnerability audit (pip-audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      # Resolve the full transitive tree from uv.lock into a plain requirements
+      # file (prod deps only; the project itself is excluded via --no-emit-project).
+      - name: Export resolved dependencies
+        run: >-
+          uv export --frozen --no-dev --no-emit-project --no-hashes
+          --format requirements-txt -o requirements.txt
+
+      # Fails the job (non-zero exit) when a known-vulnerable version is present.
+      - name: Audit for known vulnerabilities
+        run: uvx pip-audit -r requirements.txt --strict
+
+  sbom:
+    name: SBOM (CycloneDX)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Export resolved dependencies
+        run: >-
+          uv export --frozen --no-dev --no-emit-project --no-hashes
+          --format requirements-txt -o requirements.txt
+
+      - name: Generate CycloneDX SBOM
+        run: uvx --from cyclonedx-bom cyclonedx-py requirements requirements.txt -o sbom.json
+
+      # Retained with the run so you can trace every component in a deployed artifact.
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-cyclonedx
+          path: sbom.json
+          if-no-files-found: error

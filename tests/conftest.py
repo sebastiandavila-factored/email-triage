@@ -1,3 +1,4 @@
+import re
 from collections.abc import AsyncGenerator, Generator
 from contextlib import asynccontextmanager
 
@@ -155,3 +156,20 @@ async def db_session() -> AsyncGenerator[AsyncSession]:
 
     db_engine_module._session_factory = None  # type: ignore[attr-defined]
     await engine.dispose()
+
+
+# A test is end-to-end if it drives the full app (any *client fixture — the shared
+# `client`/`streaming_client` here, or a router-local one like `auth_client`) or a
+# real DB (a `*session`/`*engine` fixture). Everything else is a fast, isolated unit
+# test. Classifying by fixture name keeps the split self-maintaining: a new test is
+# sorted by what it pulls in, with no per-file bookkeeping. CI runs the two as
+# separate jobs (`pytest -m unit` / `pytest -m e2e`).
+_E2E_FIXTURE_RE = re.compile(r"client$|session$|engine$")
+
+
+def pytest_collection_modifyitems(
+    items: list[pytest.Item],
+) -> None:  # pyright: ignore[reportUnusedFunction]
+    for item in items:
+        is_e2e = any(_E2E_FIXTURE_RE.search(name) for name in getattr(item, "fixturenames", ()))
+        item.add_marker(pytest.mark.e2e if is_e2e else pytest.mark.unit)

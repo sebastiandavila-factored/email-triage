@@ -1,0 +1,39 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A newer push to the same ref supersedes an in-flight run.
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: ${{ matrix.suite }}
+    runs-on: ubuntu-latest
+    strategy:
+      # Report both suites even if one fails, so a unit failure never hides an e2e one.
+      fail-fast: false
+      matrix:
+        # unit  = fast, isolated tests (no app/DB fixtures)
+        # e2e   = tests driving the full app (TestClient) or a real DB engine.
+        # The split is auto-derived by marker in tests/conftest.py.
+        suite: [unit, e2e]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv (with cache)
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      # Installs the pinned interpreter from .python-version, the project, its
+      # optional extras (mcp), and the dev group (pytest, aiosqlite, ...).
+      - name: Install dependencies
+        run: uv sync --frozen --all-extras
+
+      - name: Run ${{ matrix.suite }} tests
+        run: uv run pytest -m ${{ matrix.suite }}

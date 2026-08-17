@@ -37,3 +37,6 @@ frontend/dist/
 
 # Eval judge calibration samples (run artifacts)
 evals/calibration/
+
+# Generated SBOM (make sbom / CI artifact)
+sbom.json
