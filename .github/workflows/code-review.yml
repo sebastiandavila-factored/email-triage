@@ -40,6 +40,8 @@ jobs:
           ANTHROPIC_API_KEY: ""
           # Remap Claude Code's quick/subagent tier to an OpenRouter slug too.
           ANTHROPIC_DEFAULT_HAIKU_MODEL: anthropic/claude-haiku-4.5
+          # Lets the skill read prior Claude comments (gh api) for incremental review.
+          GH_TOKEN: ${{ github.token }}
         with:
           # The action requires this input for its own auth check; we pass the
           # OpenRouter key so it's satisfied. Real routing happens via env above.

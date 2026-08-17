@@ -64,6 +64,11 @@ para postear (auth de GitHub, ortogonal al proveedor del LLM).
     prioridad: correctness → contratos del repo (Pydantic/DI/HTTP-codes/logging/**Triage
     Studio**/scope) → tests (no Groq) → secretos → calidad (pyright strict, sin nits de estilo
     que ya cubre ruff). Reporta con severidad `blocker/should-fix/nit`.
+  - **Review incremental (alineado a la guía CI/CD de Anthropic):** antes de analizar,
+    lee sus propios comentarios inline previos vía `gh api .../pulls/N/comments` y solo
+    postea findings **nuevos o aún presentes sin comentar** — no re-postea lo que el dev
+    ya vio y decidió no tocar (evita comentarios duplicados en cada push). Requiere
+    `GH_TOKEN` en el workflow; degrada sin dedup si falta.
   - Modo CI (`--comment`): postea inline. Modo local (`/review-pr`): imprime hallazgos.
 - **`.github/workflows/code-review.yml`** (nuevo) — job en `pull_request`
   (`opened/synchronize/ready_for_review/reopened`), skip de drafts, `concurrency` con

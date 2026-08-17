@@ -8,6 +8,7 @@ allowed-tools: >
   mcp__github_inline_comment__create_inline_comment
   Read Grep Glob
   Bash(git diff *) Bash(git fetch *) Bash(git log *) Bash(git status *)
+  Bash(gh api *) Bash(gh pr view *)
 ---
 
 # Review this pull request
@@ -29,7 +30,18 @@ Arguments passed to this skill: `$ARGUMENTS`
   surrounding files with Read/Grep when you need context, but do not comment on code
   the PR did not touch.
 
-## 2. What to look for (in priority order)
+## 2. Read prior review comments (incremental review — avoid duplicates)
+
+This review runs on **every push**, so you must not re-post issues already raised.
+Before analyzing, fetch your own previous inline comments on this PR:
+
+- Parse the PR ref from `--comment <owner>/<repo>/pull/<N>` in `$ARGUMENTS`.
+- List prior inline review comments authored by the Claude bot:
+  - `gh api "repos/<owner>/<repo>/pulls/<N>/comments" --paginate --jq '.[] | select(.user.login | test("claude";"i")) | {path, line, body}'`
+- Treat those as **PREVIOUS FINDINGS**. If the command fails (e.g. no `GH_TOKEN`),
+  note it and continue without dedup rather than aborting.
+
+## 3. What to look for (in priority order)
 
 Ground every finding in these repo conventions (source of truth: `CLAUDE.md`, `AGENTS.md`).
 The package lives at `email_triage/` (not `src/`).
@@ -79,17 +91,28 @@ The package lives at `email_triage/` (not `src/`).
 - Clear simplifications or reuse of existing helpers.
 - Do **not** report pure style/formatting — `ruff format` + `ruff check` own that.
 
-## 3. Reporting
+## 4. Reporting
 
 Cover the changed code thoroughly. For each real issue, include a **severity**
 (`blocker` / `should-fix` / `nit`) and a one-line rationale tied to a convention
 above. Prefer a concrete suggested change over a vague concern.
 
-- **When `$ARGUMENTS` contains `--comment`** (CI mode): post each finding as an
-  **inline comment** on the exact file and line using
-  `mcp__github_inline_comment__create_inline_comment`. If you find nothing worth
-  raising, post a single short summary comment saying the change looks good and why.
-  Keep it high-signal — do not flood the PR with nits.
+**Incremental filtering (apply before posting).** Compare each finding against the
+PREVIOUS FINDINGS from §2 and report **only**:
+1. **New** issues not covered by a previous finding, and
+2. Previous findings that are **still present** but were **not** already commented at
+   that same file/line.
+
+Do **not** re-post a finding that already exists as a prior Claude comment at the same
+file+line — the developer has seen it and chosen not to act. Duplicate comments on
+every push erode trust and drown the signal. An issue that was truly fixed simply
+won't reappear (the changed code no longer triggers it), so it drops out on its own.
+
+- **When `$ARGUMENTS` contains `--comment`** (CI mode): post each *surviving* finding
+  as an **inline comment** on the exact file and line using
+  `mcp__github_inline_comment__create_inline_comment`. If there are no new or
+  still-unaddressed issues, post nothing (or a single short summary on the first run
+  when the change looks good). Keep it high-signal — do not flood the PR with nits.
 - **Otherwise** (local mode): print the findings grouped by severity, each as
   `path:line — [severity] finding` followed by the suggested fix.
 

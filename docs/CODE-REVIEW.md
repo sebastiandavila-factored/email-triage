@@ -12,9 +12,10 @@ pull_request event
    └─ .github/workflows/code-review.yml       # the GitHub Action job
         └─ anthropics/claude-code-action@v1
              └─ /review-pr  (.claude/skills/review-pr/SKILL.md)
-                  ├─ git diff origin/<base>...HEAD   # only the changed lines
+                  ├─ git diff origin/<base>...HEAD    # only the changed lines
+                  ├─ gh api .../pulls/N/comments      # prior Claude findings
                   ├─ checks against CLAUDE.md conventions
-                  └─ posts inline comments on the PR
+                  └─ posts inline comments (new / still-unaddressed only)
 ```
 
 - **Workflow:** [`.github/workflows/code-review.yml`](../.github/workflows/code-review.yml).
