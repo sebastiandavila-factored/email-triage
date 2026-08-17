@@ -1,9 +1,9 @@
 # 46. Frontend de las features agénticas — reporte de voz, diagnóstico, tuning
 
-**Status:** 📋 proposed
+**Status:** 🚧 implemented (pending human review/merge + pase visual autenticado)
 **Estimate:** ~7 hrs (F1 ~2, F2 ~2, F3 ~3)
 **Depends on:** Plan 41 (`/reports/voice`), Plan 43 (`/traces/{trace_id}/diagnose`), Plan 44 (`/tune`).
-**Alcance:** solo frontend (React SPA). Backends ya implementados (43/44) o planeados en detalle (41).
+**Alcance:** solo frontend (React SPA). Los tres backends (41/43/44) ya están implementados y mergeados a `main`.
 
 ## Intent
 
@@ -136,9 +136,17 @@ panel). Reusa la carga de categorías del Studio.
 
 ## Done when
 
-- [ ] F1: "Generar reporte de voz" en `/inbox` muestra `headline` + conteos + guion, con "Copiar"
-- [ ] F2: "Diagnosticar" junto a "Ver traces" (Dashboard+Inbox) muestra `TraceDiagnosis`, gated `traces:read`
-- [ ] F3: "Sugerir mejora" en el resultado del Dashboard (solo owner) muestra `TuningProposal` y enlaza a Studio para publicar; **no publica**
-- [ ] Manejo de estados: loading / 403 / 404 / 422 / 503 en cada flujo
-- [ ] Gates de frontend verdes (tsc + eslint + vite build)
+- [x] F1: "Voice report" en `/inbox` muestra `headline` + conteos + guion, con "Copy script" (`VoiceScriptView`)
+- [x] F2: "Diagnose" junto a "Ver traces" (Dashboard+Inbox) muestra `TraceDiagnosis`, gated `traces:read` (`DiagnosePanel`/`TraceDiagnosisView`)
+- [x] F3: "Suggest improvement" en el resultado del Dashboard (solo owner) muestra `TuningProposal` y enlaza a Studio para publicar; **no publica** (`TuningPanel`/`TuningProposalView`)
+- [x] Manejo de estados: loading / 403 / 404 / 422 / 503 en cada flujo (vía `ApiError.detail`)
+- [x] Gates de frontend verdes (tsc + eslint + vite build)
 - [ ] Pase visual autenticado (humano) de los tres flujos
+
+## Implementación (rama `feat/agentic-frontend`, off `main`)
+
+- `frontend/src/api.ts` — tipos espejo (`VoiceReport`/`VoiceScript`/`CategoryCount`, `TraceDiagnosis`/`EvidenceSpan`/`FixKind`, `TuningProposal`/`EvalScore`) + métodos `voiceReport`/`diagnoseTrace`/`tune`.
+- **F1:** `components/VoiceScriptView.tsx`; botón "Voice report" + panel + reset-on-sync en `pages/Inbox.tsx`.
+- **F2:** `components/TraceDiagnosisView.tsx` (`TraceDiagnosisView` puro + `DiagnosePanel`); montado junto a `TraceChat` en `pages/Dashboard.tsx` y `pages/Inbox.tsx`.
+- **F3:** `components/TuningPanel.tsx` (`TuningProposalView` reusa `TraceDiagnosisView` + `TuningPanel`); montado en el resultado del Dashboard, gated `prompt:publish` (owner), CTA a `/studio` (nunca publica).
+- Gates: `eslint` limpio + `tsc -b && vite build` verde (53 módulos); smoke: la SPA arranca sin errores de consola/servidor.

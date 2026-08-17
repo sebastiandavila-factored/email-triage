@@ -10,6 +10,10 @@ export default defineConfig({
       '/auth': 'http://localhost:8000',
       '/triage': 'http://localhost:8000',
       '/health': 'http://localhost:8000',
+      '/workspaces': 'http://localhost:8000',
+      '/gmail': 'http://localhost:8000',
+      '/reports': 'http://localhost:8000',
+      '/invitations': 'http://localhost:8000',
     },
   },
 })

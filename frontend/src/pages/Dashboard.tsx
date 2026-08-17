@@ -1,8 +1,11 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth, ApiError } from '../AuthContext'
 import { api } from '../api'
 import type { TriageResponse } from '../api'
 import { TraceChat } from '../components/TraceChat'
+import { DiagnosePanel } from '../components/TraceDiagnosisView'
+import { TuningPanel } from '../components/TuningPanel'
 import { AppShell } from '../components/ui/AppShell'
 import { Button, Card, Field, SectionHead, Tag } from '../components/ui/kit'
 import { can } from '../rbac'
@@ -14,17 +17,20 @@ export function Dashboard() {
   const [body, setBody] = useState('')
   const [result, setResult] = useState<TriageResponse | null>(null)
   const [error, setError] = useState('')
+  const [apiKeyIssue, setApiKeyIssue] = useState(false)
   const [loading, setLoading] = useState(false)
   const [showTraces, setShowTraces] = useState(false)
 
   async function handleTriage(e: React.FormEvent) {
     e.preventDefault()
     if (!token) return
+    setError('')
+    setApiKeyIssue(false)
     if (!apiKey) {
-      setError('API key not set. Go to Settings to enter or rotate your API key.')
+      setApiKeyIssue(true)
+      setError('No API key saved for this session.')
       return
     }
-    setError('')
     setResult(null)
     setShowTraces(false)
     setLoading(true)
@@ -32,7 +38,14 @@ export function Dashboard() {
       const data = await api.triage(token, apiKey, subject, sender, body)
       setResult(data)
     } catch (err) {
-      setError(err instanceof ApiError ? err.detail : 'Something went wrong')
+      // Logging in doesn't restore the API key (it's only issued once at signup), so a stale
+      // or missing key surfaces here as a 403. Point the user straight at Settings → Rotate.
+      if (err instanceof ApiError && err.status === 403 && /api key/i.test(err.detail)) {
+        setApiKeyIssue(true)
+        setError('Your API key is invalid or missing.')
+      } else {
+        setError(err instanceof ApiError ? err.detail : 'Something went wrong')
+      }
     } finally {
       setLoading(false)
     }
@@ -82,7 +95,20 @@ export function Dashboard() {
             </label>
 
             {error && (
-              <p className="text-sm text-crit border border-line rounded-lg px-3 py-2">{error}</p>
+              <div className="text-sm border border-line rounded-lg px-3 py-2 space-y-1.5">
+                <p className="text-crit">{error}</p>
+                {apiKeyIssue && (
+                  <p className="text-ink-soft">
+                    Logging in doesn't restore your API key — it's only issued once, at signup.{' '}
+                    <strong>Did you rotate your API key from Settings?</strong> Open{' '}
+                    <Link to="/settings" className="text-brand hover:underline font-medium">
+                      Settings
+                    </Link>{' '}
+                    and click <em>Rotate</em> to generate a fresh key (it's saved automatically),
+                    then try again.
+                  </p>
+                )}
+              </div>
             )}
 
             <Button type="submit" disabled={loading} className="w-full">
@@ -128,9 +154,22 @@ export function Dashboard() {
                   {showTraces ? '▾ Hide traces' : '▸ Ver traces'}
                 </button>
                 {showTraces && (
-                  <TraceChat token={token} tid={user.tenant_id} traceId={result.trace_id} />
+                  <>
+                    <DiagnosePanel token={token} tid={user.tenant_id} traceId={result.trace_id} />
+                    <TraceChat token={token} tid={user.tenant_id} traceId={result.trace_id} />
+                  </>
                 )}
               </div>
+            )}
+
+            {/* Tuning copilot — owner only, needs the full email + a trace id (Plan 44/F3) */}
+            {can(user?.role, 'prompt:publish') && result.trace_id && token && user?.tenant_id && (
+              <TuningPanel
+                token={token}
+                tid={user.tenant_id}
+                traceId={result.trace_id}
+                email={{ subject, sender, body }}
+              />
             )}
           </Card>
         )}

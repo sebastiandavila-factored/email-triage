@@ -181,6 +181,70 @@ export interface GmailConnectResponse {
   authorization_url: string
 }
 
+// ── Agentic features (Plan 41/43/44) ──────────────────────────────────────────
+
+// Voice report (Plan 41) — mirror of the backend VoiceReport schema.
+export interface VoiceScriptSection {
+  heading: string
+  body: string
+}
+
+export interface VoiceScript {
+  opening: string
+  sections: VoiceScriptSection[]
+  closing: string
+}
+
+export interface CategoryCount {
+  category: string
+  count: number
+}
+
+export interface VoiceReport {
+  script: VoiceScript
+  headline: string
+  by_category: CategoryCount[]
+  total: number
+  audio_url: string | null // always null in v1 (script-only); hook for future TTS
+}
+
+// Trace diagnosis (Plan 43) — structured verdict on why one triage behaved as it did.
+export interface EvidenceSpan {
+  span_name: string
+  level?: number | null
+  duration_ms?: number | null
+  note: string
+}
+
+export type FixKind = 'add_counter_example' | 'tweak_category' | 'adjust_examples' | 'none'
+
+export interface TraceDiagnosis {
+  root_cause: string
+  evidence: EvidenceSpan[]
+  confidence: number
+  suggested_fix_kind: FixKind
+  target_slug: string | null
+  rationale: string
+}
+
+// Tuning copilot (Plan 44) — what the copilot did to the DRAFT and how it scored.
+export interface EvalScore {
+  target_fixed: boolean
+  target_predicted: string
+  regressions: number
+  checked: number
+}
+
+export interface TuningProposal {
+  diagnosis: TraceDiagnosis | null
+  changes: string[]
+  score_before: EvalScore | null
+  score_after: EvalScore | null
+  gate_passed: boolean
+  cycles: number
+  recommendation: string
+}
+
 export class ApiError extends Error {
   status: number
   detail: string
@@ -512,5 +576,32 @@ export const api = {
 
   gmailDisconnect(token: string): Promise<{ disconnected: boolean; message: string }> {
     return request('/gmail/connection', { method: 'DELETE' }, token)
+  },
+
+  // ── Agentic features (Plan 41/43/44) ──────────────────────────────────────────
+
+  // Voice report (Plan 41): summarize the items already on screen into a spoken briefing
+  // script. Decoupled from Gmail — the backend reports exactly what the caller passes.
+  voiceReport(token: string, items: InboxItem[]): Promise<VoiceReport> {
+    return request('/reports/voice', { method: 'POST', body: JSON.stringify({ items }) }, token)
+  },
+
+  // Trace diagnosis (Plan 43): structured verdict for one triage's trace (owner/admin only).
+  diagnoseTrace(token: string, tid: string, traceId: string): Promise<TraceDiagnosis> {
+    return request(`/workspaces/${tid}/traces/${traceId}/diagnose`, { method: 'POST' }, token)
+  },
+
+  // Tuning copilot (Plan 44): given a mis-classified triage, propose draft changes that fix it
+  // without regressions. Owner only. The human publishes via Studio — this never publishes.
+  tune(
+    token: string,
+    tid: string,
+    payload: {
+      trace_id: string
+      email: { subject: string; sender: string; body: string }
+      expected_category: string
+    },
+  ): Promise<TuningProposal> {
+    return request(`/workspaces/${tid}/tune`, { method: 'POST', body: JSON.stringify(payload) }, token)
   },
 }

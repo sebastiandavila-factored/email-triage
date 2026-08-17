@@ -2,8 +2,10 @@ import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuth, ApiError } from '../AuthContext'
 import { api } from '../api'
-import type { GmailStatus, InboxItem } from '../api'
+import type { GmailStatus, InboxItem, VoiceReport } from '../api'
 import { TraceChat } from '../components/TraceChat'
+import { DiagnosePanel } from '../components/TraceDiagnosisView'
+import { VoiceScriptView } from '../components/VoiceScriptView'
 import { AppShell } from '../components/ui/AppShell'
 import { Button, Card, SectionHead, Tag } from '../components/ui/kit'
 import { can } from '../rbac'
@@ -36,6 +38,9 @@ export function Inbox() {
   const [error, setError] = useState('')
   const [needsReconnect, setNeedsReconnect] = useState(false)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [report, setReport] = useState<VoiceReport | null>(null)
+  const [generating, setGenerating] = useState(false)
+  const [reportError, setReportError] = useState('')
   // Read the OAuth callback flag once at mount (?gmail=connected|denied); the effect
   // below only strips it from the URL.
   const [notice] = useState(() => {
@@ -107,6 +112,8 @@ export function Inbox() {
     setError('')
     setNeedsReconnect(false)
     setSyncing(true)
+    setReport(null) // a fresh sync invalidates any prior voice report
+    setReportError('')
     try {
       const data = await api.gmailSync(token, { unreadOnly, days })
       setItems(data.items)
@@ -121,6 +128,19 @@ export function Inbox() {
       }
     } finally {
       setSyncing(false)
+    }
+  }
+
+  async function handleVoiceReport() {
+    if (!token || !items || items.length === 0) return
+    setReportError('')
+    setGenerating(true)
+    try {
+      setReport(await api.voiceReport(token, items))
+    } catch (err) {
+      setReportError(err instanceof ApiError ? err.detail : 'Could not generate the voice report')
+    } finally {
+      setGenerating(false)
     }
   }
 
@@ -185,6 +205,11 @@ export function Inbox() {
                 <Button onClick={handleSync} disabled={syncing}>
                   {syncing ? 'Fetching…' : 'Fetch emails'}
                 </Button>
+                {items && items.length > 0 && (
+                  <Button variant="ghost" onClick={handleVoiceReport} disabled={generating || syncing}>
+                    {generating ? 'Generating…' : 'Voice report'}
+                  </Button>
+                )}
                 {canConnect && (
                   <Button variant="ghost" onClick={handleDisconnect}>
                     Disconnect
@@ -230,6 +255,17 @@ export function Inbox() {
             </div>
           </Card>
         )}
+
+        {/* Voice report (Plan 41) — briefing over the items already on screen */}
+        {reportError && (
+          <p className="text-sm text-crit border border-line rounded-lg px-3 py-2">{reportError}</p>
+        )}
+        {generating && (
+          <Card className="p-6">
+            <p className="text-sm text-muted">Writing your briefing…</p>
+          </Card>
+        )}
+        {!generating && report && <VoiceScriptView report={report} />}
 
         {/* Loading skeleton */}
         {syncing && (
@@ -299,6 +335,7 @@ export function Inbox() {
 
                       {can(user?.role, 'traces:read') && item.trace_id && token && user?.tenant_id && (
                         <div className="mt-3">
+                          <DiagnosePanel token={token} tid={user.tenant_id} traceId={item.trace_id} />
                           <TraceChat token={token} tid={user.tenant_id} traceId={item.trace_id} />
                         </div>
                       )}
