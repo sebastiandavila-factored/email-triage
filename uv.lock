@@ -415,7 +415,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "itsdangerous", specifier = ">=2.2" },
     { name = "joserfc", specifier = ">=1.7.1" },
-    { name = "logfire", extras = ["fastapi", "httpx", "system-metrics"], specifier = ">=4.34.0" },
+    { name = "logfire", extras = ["fastapi", "httpx", "system-metrics"], specifier = ">=4.40.0" },
     { name = "mcp", marker = "extra == 'mcp'", specifier = ">=2.0" },
     { name = "pydantic", extras = ["email"], specifier = ">=2.13.4" },
     { name = "pydantic-ai-slim", extras = ["groq"], specifier = ">=1.106.0,<2" },
@@ -893,7 +893,7 @@ wheels = [
 
 [[package]]
 name = "logfire"
-version = "4.34.0"
+version = "4.40.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "executing" },
@@ -904,9 +904,9 @@ dependencies = [
     { name = "rich" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/81/a6/6cbd7064d7ab120fbdd72ca1a218b3fa3343a5f1f0733fcfa34d43333aaf/logfire-4.34.0.tar.gz", hash = "sha256:d88bb04f26a5ae0064d36eeb0fca5413599f0e2d068d629bcab25993ff405e25", size = 1144711, upload-time = "2026-05-26T18:09:51.81Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f9/71/1ed06d124bd7905f60004d60cbe14c79bda00f0604bf0cb76214f8c96348/logfire-4.40.0.tar.gz", hash = "sha256:f50f9637f9b5cc3eb5f8526e473effa1992d45056c89adc7c821ee7ab2520c75", size = 1260846, upload-time = "2026-08-05T11:26:59.605Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/de/04/a386debccf1e91575dda55fa07b96f8309fc544833d7eec24b69869278f9/logfire-4.34.0-py3-none-any.whl", hash = "sha256:b9d9fc71aec184b28c29a9a9e280c954a3ea52c399f1d7b95ce82bff6b177364", size = 344385, upload-time = "2026-05-26T18:09:48.436Z" },
+    { url = "https://files.pythonhosted.org/packages/e6/65/2ed148a656362ff3b5cce0bfae619cf57ca1df33d0c942b4c1461e57f57c/logfire-4.40.0-py3-none-any.whl", hash = "sha256:0ac2c950968812f27ee68ccec4a362230acffaffb28f04945ee07729d5866fa0", size = 409440, upload-time = "2026-08-05T11:26:56.745Z" },
 ]
 
 [package.optional-dependencies]
