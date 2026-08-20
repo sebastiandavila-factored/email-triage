@@ -14,6 +14,12 @@ jobs:
   test:
     name: ${{ matrix.suite }}
     runs-on: ubuntu-latest
+    # main.py builds Settings() at import time (conftest imports the app), so the two
+    # required fields must exist in the env — CI has no .env file. Values are dummy:
+    # conftest overrides settings for actual behaviour and tests never call Groq.
+    env:
+      GROQ_API_KEY: test-groq-key
+      API_KEY: test-api-key
     strategy:
       # Report both suites even if one fails, so a unit failure never hides an e2e one.
       fail-fast: false
