@@ -39,13 +39,15 @@ Vercel vive en el **dashboard del proyecto** (no accesible desde el repo).
 **Decisión:** en vez de adivinar, **fijar la versión en el repo y forzar a Vercel a
 respetarla**:
 
-- `package.json` → `"engines": { "node": "22.x" }` — **Vercel respeta `engines.node`**, así
+- `package.json` → `"engines": { "node": "24.x" }` — **Vercel respeta `engines.node`**, así
   que esto ata el deploy.
-- `frontend/.nvmrc` → `22` — para dev local.
+- `frontend/.nvmrc` → `24` — para dev local.
 - El workflow usa `node-version-file: frontend/.nvmrc` — misma fuente de verdad.
 
-Valor: **22 (LTS)**, compatible con Vite 8. Ajustable si el dashboard de Vercel dice otra
-cosa — a confirmar con el humano antes de implementar (única pregunta abierta real).
+Valor: **24** — match literal con lo que el proyecto tenía en el dashboard de Vercel (el log
+del deploy mostró `Node.js version changed from "24.x" to "22.x"`), y coincide con
+`@types/node ^24`. Antes del fix las tres fuentes divergían (Vercel 24, CI/engines sin fijar);
+ahora quedan atadas a 24.
 
 ## Estructura en 3 commits (para que el PR sea revisable por capas)
 
@@ -142,7 +144,8 @@ cosa — a confirmar con el humano antes de implementar (única pregunta abierta
 - [x] Vitest instalado + set inicial de unit tests verde (14 tests: `api`/`rbac`/`invite`).
 - [x] Playwright instalado + flujos iniciales (API mockeada) verdes (4 tests: landing + auth).
 - [ ] `docs/features/49-*.md` + `docs/testing/49-*_testing.md` (pendiente).
-- [ ] Humano confirmó Node (22 asumido) y validó el PR.
+- [x] Node confirmado por el humano: **24** (match con el dashboard de Vercel).
+- [ ] Humano validó el PR.
 
 ## Implementación (registro)
 
@@ -160,3 +163,22 @@ cosa — a confirmar con el humano antes de implementar (única pregunta abierta
   ya crea `.github/dependabot.yml` con el ecosistema `npm` para `/frontend`. Crear otro acá
   garantizaría un conflicto de merge. Si esa rama no mergea, agregarlo después.
 - **Verificado local:** lint ✓ · `tsc -b` ✓ · build ✓ · Vitest 14/14 ✓ · Playwright 4/4 ✓ · YAML ✓.
+
+### Build de prod desacoplado del tooling de tests (fix Vercel)
+
+**Problema (visto en Vercel):** el deploy corre `npm run build` = `tsc -b && vite build`, y
+`tsc -b` estaba typecheckeando `vitest.config.ts` (que tenía `all: true`, inválido en Vitest
+4) → el build de prod rompía por config de **tests**. Además, meter tooling de test en el
+grafo del build es incorrecto de por sí.
+
+**Fix (separación de responsabilidades):**
+- `tsconfig.app.json` **excluye** `src/**/*.test.ts(x)`.
+- `tsconfig.node.json` vuelve a incluir **solo** `vite.config.ts` (sin vitest/playwright).
+- Nuevo `tsconfig.test.json` (standalone, **no** en las project-references del root) typechea
+  tests + configs. Se corre en CI con `npm run typecheck:test`, nunca en el build de prod.
+- `vitest.config.ts`: se quitó `all: true` (Vitest 4 lo removió de `CoverageOptions`); el
+  universo del reporte lo define `coverage.include`.
+
+**Garantía verificada:** `tsc -b --listFiles` del build de prod **no** contiene
+`vitest.config`, `playwright.config`, `*.test.ts` ni `e2e/`. El tooling de test se instala en
+Vercel (son devDeps, como `vite`/`tsc`) pero el build no lo ejecuta ni lo typechea.

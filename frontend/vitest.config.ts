@@ -12,11 +12,10 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
-      // `all` counts every source file, not only the ones a test imported — so
-      // the number reflects the whole SPA. NOTE: this is UNIT coverage only;
-      // the React pages/components are exercised by the Playwright e2e suite,
-      // which this metric does not see. Read the two together.
-      all: true,
+      // `include` defines the universe of files reported (covered or not), so the
+      // number reflects the whole SPA. NOTE: this is UNIT coverage only; the React
+      // pages/components are exercised by the Playwright e2e suite, which this
+      // metric does not see. Read the two together.
       include: ['src/**/*.{ts,tsx}'],
       exclude: [
         'src/**/*.test.ts',

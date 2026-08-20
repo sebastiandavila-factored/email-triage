@@ -21,5 +21,7 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  // Tests are typechecked by tsconfig.test.json (in CI), never by the prod build.
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
 }
