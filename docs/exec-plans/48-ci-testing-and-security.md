@@ -130,11 +130,28 @@ Dos decisiones no obvias:
 - **Audit como required check.** Hoy falla el job pero no bloquea el merge salvo que se
   configure como required. Decisión del humano.
 
+## Actualización — Dependabot: version-updates → security-only
+
+Al mergear a `main`, `dependabot.yml` (version-updates) hizo su primera corrida y abrió ~13
+PRs actualizando **toda** dependencia con versión más nueva, hubiera o no vulnerabilidad
+(TypeScript 7, @types/node 26, structlog 26, etc.). Eso es higiene de deps, **no** seguridad,
+y no era lo pedido (Level 4 = *detectar y parchear vulnerabilidades*, no "actualizar todo").
+
+**Decisión (con el humano): quitar `dependabot.yml`** y quedarse con el enfoque puramente de
+seguridad, cero ruido:
+- **Detección:** `security.yml` (pip-audit) marca en rojo cualquier PR con un CVE conocido.
+- **Parcheo automático:** *Dependabot **security** updates* (setting del repo, no un YAML) abre
+  PR **solo** cuando hay una vulnerabilidad con fix — independiente de `dependabot.yml`.
+
+Al mergear la remoción, Dependabot **cierra solo** los PRs de version-updates que había abierto.
+
 ## Setup (humano — el agente no puede)
 
-1. Habilitar **Dependabot** en el repo (Settings → Code security → Dependabot alerts +
-   security updates) si no está.
-2. (Opcional) Marcar `tests` y `security/audit` como **required status checks** en la
+1. Habilitar **Dependabot alerts** + **Dependabot security updates** en el repo
+   (Settings → Code security). Eso cubre el parcheo de vulnerabilidades sin `dependabot.yml`.
+2. Cerrar (o dejar que Dependabot auto-cierre al mergear esta rama) los PRs de version-updates
+   ya abiertos — no son CVEs.
+3. (Opcional) Marcar `tests` y `security/audit` como **required status checks** en la
    protección de rama de `main`.
 
 ## Testing
@@ -152,4 +169,5 @@ Dos decisiones no obvias:
 - [x] Split unit/e2e auto-marcado; ambos suites verdes offline.
 - [x] `pip-audit` sin vulnerabilidades tras la remediación.
 - [ ] `docs/features/48-*.md` + `docs/testing/48-*_testing.md` (post-merge).
-- [ ] Humano habilita Dependabot y (opcional) required checks.
+- [x] Dependabot repensado: version-updates removido; queda pip-audit + Dependabot **security** updates (ver §Actualización).
+- [ ] Humano habilita Dependabot security updates y (opcional) required checks.
