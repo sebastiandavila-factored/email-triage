@@ -18,33 +18,37 @@ jobs:
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
       (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
-      pull-requests: read
-      issues: read
+      pull-requests: write   # reply + read the PR conversation
+      issues: write
       id-token: write
-      actions: read # Required for Claude to read CI results on PRs
+      actions: read          # read CI results / workflow-run logs on PRs
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
-          fetch-depth: 1
+          fetch-depth: 0     # full history so `gh pr diff` / git diff work
 
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@v1
+        # Route Claude Code through OpenRouter's Anthropic-compatible endpoint.
+        # ANTHROPIC_API_KEY MUST be "" (empty, not unset) so it uses the bearer
+        # token instead of falling back to api.anthropic.com. See docs/CODE-REVIEW.md.
+        env:
+          ANTHROPIC_BASE_URL: https://openrouter.ai/api
+          ANTHROPIC_AUTH_TOKEN: ${{ secrets.OPENROUTER_API_KEY }}
+          ANTHROPIC_API_KEY: ""
+          ANTHROPIC_DEFAULT_HAIKU_MODEL: anthropic/claude-haiku-4.5
+          GH_TOKEN: ${{ github.token }}   # lets the `gh` tools below authenticate
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-
-          # This is an optional setting that allows Claude to read CI results on PRs
+          anthropic_api_key: ${{ secrets.OPENROUTER_API_KEY }}
+          # Grant the action's own token access to read CI results.
           additional_permissions: |
             actions: read
-
-          # Optional: Give a custom prompt to Claude. If this is not specified, Claude will perform the instructions specified in the comment that tagged it.
-          # prompt: 'Update the pull request description to include a summary of changes.'
-
-          # Optional: Add claude_args to customize behavior and configuration
-          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
-          # or https://code.claude.com/docs/en/cli-reference for available options
-          # claude_args: '--allowed-tools Bash(gh pr *)'
-
+          claude_args: |
+            --model anthropic/claude-haiku-4.5
+            --allowedTools "Bash(gh pr view *),Bash(gh pr diff *),Bash(gh pr checks *),Bash(gh run view *),Bash(gh run list *),Bash(gh api *),mcp__github_inline_comment__create_inline_comment"
+            --append-system-prompt "When you respond on a pull request, ground your answer in its real state before writing: read the diff with 'gh pr diff', the CI check results and any failing logs with 'gh pr checks' and 'gh run view --log-failed', and the existing PR review comments and conversation with 'gh pr view --comments'. Reference specific files, lines, and check names rather than speaking generally."

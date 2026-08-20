@@ -12,9 +12,10 @@ pull_request event
    └─ .github/workflows/code-review.yml       # the GitHub Action job
         └─ anthropics/claude-code-action@v1
              └─ /review-pr  (.claude/skills/review-pr/SKILL.md)
-                  ├─ git diff origin/<base>...HEAD   # only the changed lines
+                  ├─ git diff origin/<base>...HEAD    # only the changed lines
+                  ├─ gh api .../pulls/N/comments      # prior Claude findings
                   ├─ checks against CLAUDE.md conventions
-                  └─ posts inline comments on the PR
+                  └─ posts inline comments (new / still-unaddressed only)
 ```
 
 - **Workflow:** [`.github/workflows/code-review.yml`](../.github/workflows/code-review.yml).
@@ -51,6 +52,14 @@ inline comments within a couple of minutes.
 
 ## Notes
 
+- **Workflow must live on the default branch (`main`).** `claude-code-action`
+  refuses to run on a PR whose workflow file differs from the version on `main`
+  (a security guard against a PR editing the reviewer that reviews it). It logs
+  *"Workflow validation failed… will begin working once you merge your PR"* and
+  skips with a green check. Consequence: the PR that **introduces or edits**
+  `code-review.yml` / `claude.yml` is **not** reviewed — merge it first, then
+  normal PRs (that don't touch these files) get reviewed. The same rule is why
+  `@claude` (an `issue_comment` event) only ever uses the `main` version.
 - **Cost:** each run uses GitHub Actions minutes + Claude API tokens. Keep
   `CLAUDE.md` concise (it's read every run) and use `--max-turns` to cap work.
 - **Fork PRs:** GitHub withholds secrets from fork-PR runs. This repo is private,

@@ -12,7 +12,10 @@ Every inbound support email gets sorted into *your* categories and gets a drafte
 
 ---
 
-[![Watch the demo](docs/media/demo-thumb.png)](docs/media/demo.mp4)
+
+https://github.com/user-attachments/assets/467ece2b-76a8-4a8c-a123-568cc7a02e9e
+
+
 *42s walkthrough: classify an email, see the drafted reply and confidence score, then ask the trace-debug agent why it decided what it decided.*
 
 ## The problem
