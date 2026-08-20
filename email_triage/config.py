@@ -5,10 +5,14 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _INSECURE_SESSION_SECRET = "change-me-in-production"
 
+# Single source of truth for the default Groq model. Overridable per-environment
+# via GROQ_MODEL; imported by services/evals so the default can never drift.
+DEFAULT_GROQ_MODEL = "qwen/qwen3.6-27b"
+
 
 class Settings(BaseSettings):
     groq_api_key: str
-    groq_model: str = "llama-3.3-70b-versatile"
+    groq_model: str = DEFAULT_GROQ_MODEL
     api_key: str
     # Logfire Prompt Management label to resolve the triage system prompt from.
     # The in-code SYSTEM_PROMPT is the fallback if Logfire has no managed variable.

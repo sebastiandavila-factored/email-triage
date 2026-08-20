@@ -310,7 +310,10 @@ async def run(
         init_db(settings.database_url)
 
     llm = LLMService(api_key=settings.groq_api_key, model=settings.groq_model)
-    judge = JudgeAgent(api_key=settings.groq_api_key) if use_judge else None
+    # Judge follows GROQ_MODEL too, so evals measure with the same model as prod.
+    judge = (
+        JudgeAgent(api_key=settings.groq_api_key, model=settings.groq_model) if use_judge else None
+    )
     set_judge(judge)
 
     evaluators: list[Evaluator[TriageRequest, TriageResponse, CaseMeta]] = [CategoryCorrect()]

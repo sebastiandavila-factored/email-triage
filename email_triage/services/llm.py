@@ -6,6 +6,7 @@ from pydantic_ai import Agent, PromptedOutput
 from pydantic_ai.capabilities.abstract import AbstractCapability
 from pydantic_ai.settings import ModelSettings
 
+from email_triage.config import DEFAULT_GROQ_MODEL
 from email_triage.observability import LLM_ERRORS_TOTAL, LLM_IN_FLIGHT
 from email_triage.schemas import (
     AnyTriageResponse,
@@ -18,7 +19,10 @@ from email_triage.schemas import (
 from email_triage.services.groq import build_groq_model
 from email_triage.services.prompt_compiler import UNKNOWN_SLUG, render_email
 
-DEFAULT_MODEL: Final = "llama-3.3-70b-versatile"
+# Re-exported under the local name; the actual value lives in config (one source
+# of truth). Only used when a caller omits `model=` — the real path always passes
+# settings.groq_model.
+DEFAULT_MODEL: Final = DEFAULT_GROQ_MODEL
 
 SYSTEM_PROMPT: Final = """You are an email triage system for an e-commerce support inbox.
 

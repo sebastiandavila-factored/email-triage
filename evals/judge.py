@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from email_triage.config import DEFAULT_GROQ_MODEL
 from email_triage.services.groq import build_groq_model
 from pydantic_ai import Agent
 from pydantic_ai.settings import ModelSettings
@@ -41,7 +42,7 @@ set verdict="assessable" and fill in all five scores. Always provide a one-line 
 
 
 class JudgeAgent:
-    def __init__(self, api_key: str, model: str = "llama-3.3-70b-versatile") -> None:
+    def __init__(self, api_key: str, model: str = DEFAULT_GROQ_MODEL) -> None:
         groq_model = build_groq_model(model, api_key)
         self._agent: Agent[None, JudgeScore] = Agent(
             groq_model,
