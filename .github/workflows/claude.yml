@@ -45,8 +45,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}   # lets the `gh` tools below authenticate
         with:
           anthropic_api_key: ${{ secrets.OPENROUTER_API_KEY }}
-          # TEMP (debugging): surface the raw Claude error in the run log.
-          show_full_output: true
           # Grant the action's own token access to read CI results.
           additional_permissions: |
             actions: read
