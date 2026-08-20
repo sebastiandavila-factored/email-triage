@@ -46,6 +46,8 @@ jobs:
           # The action requires this input for its own auth check; we pass the
           # OpenRouter key so it's satisfied. Real routing happens via env above.
           anthropic_api_key: ${{ secrets.OPENROUTER_API_KEY }}
+          # TEMP (debugging): surface the raw Claude error in the run log.
+          show_full_output: true
           # Invoke the repo-local skill (.claude/skills/review-pr/SKILL.md).
           prompt: >-
             /review-pr
