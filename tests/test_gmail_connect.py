@@ -10,7 +10,9 @@ from collections.abc import Generator
 from contextlib import ExitStack
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
+# Starlette's TestClient returns httpx2.Response (it does `import httpx2 as httpx`
+# internally since 1.3.x); the app's own routers still use httpx (v1).
+import httpx2
 import pytest
 from cryptography.fernet import Fernet
 from email_triage.auth.session import create_access_token
@@ -222,7 +224,7 @@ def _run_callback(
     *,
     profile_json: dict[str, object] | None = None,
     gmail_repo: AsyncMock | None = None,
-) -> httpx.Response:
+) -> httpx2.Response:
     uid, tid = uuid.uuid4(), uuid.uuid4()
     state = encode_connect_state(TokenCipher(_ENC_KEY), "verifier-123", uid, tid)
 

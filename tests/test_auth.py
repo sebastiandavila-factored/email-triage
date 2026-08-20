@@ -7,7 +7,9 @@ import uuid
 from collections.abc import Generator
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
+# Starlette's TestClient returns httpx2.Response (it does `import httpx2 as httpx`
+# internally since 1.3.x); the app's own routers still use httpx (v1).
+import httpx2
 import pytest
 from email_triage.auth.pkce import code_challenge, generate_code_verifier
 from email_triage.auth.session import create_access_token, decode_access_token
@@ -318,7 +320,7 @@ def _run_callback(
     user_repo: AsyncMock,
     tenant_repo: AsyncMock,
     session_get: object = None,
-) -> httpx.Response:
+) -> httpx2.Response:
     """Drive GET /auth/callback with a mocked Google exchange + DB layer.
 
     joserfc_jwt.decode is patched (no real signature check), but the callback's

@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help install dev test test-v lint format typecheck precommit check ttft eval eval-quick db-up db-down db-migrate db-revision db-shell frontend-install frontend-dev frontend-build
+.PHONY: help install dev test test-v test-unit test-e2e audit sbom lint format typecheck precommit check ttft eval eval-quick db-up db-down db-migrate db-revision db-shell frontend-install frontend-dev frontend-build
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -20,6 +20,21 @@ test: ## Run full test suite
 
 test-v: ## Run tests with verbose output
 	uv run pytest -v
+
+test-unit: ## Run only unit tests (fast, no app/DB) — mirrors CI
+	uv run pytest -m unit
+
+test-e2e: ## Run only e2e tests (full app / real DB) — mirrors CI
+	uv run pytest -m e2e
+
+audit: ## Scan resolved deps for known vulnerabilities (pip-audit) — mirrors CI
+	@uv export --frozen --no-dev --no-emit-project --no-hashes --format requirements-txt -o /tmp/req-audit.txt
+	uvx pip-audit -r /tmp/req-audit.txt --strict
+
+sbom: ## Generate a CycloneDX SBOM (sbom.json) from resolved prod deps
+	@uv export --frozen --no-dev --no-emit-project --no-hashes --format requirements-txt -o /tmp/req-sbom.txt
+	uvx --from cyclonedx-bom cyclonedx-py requirements /tmp/req-sbom.txt -o sbom.json
+	@echo "Wrote sbom.json"
 
 lint: ## Lint with ruff (auto-fix)
 	uv run ruff check --fix
