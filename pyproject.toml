@@ -5,7 +5,7 @@ description = "AI email triage API: classify support emails and draft replies"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "alembic>=1.14",
+    "alembic>=1.19.1",
     "asyncpg>=0.30",
     "bcrypt>=4.2",
     "cryptography>=50.0",
@@ -14,18 +14,18 @@ dependencies = [
     "gunicorn>=26.0.0",
     "httpx>=0.28.1",
     "itsdangerous>=2.2",
-    "joserfc>=1.7.1",
+    "joserfc>=1.7.4",
     "logfire[fastapi,httpx,system-metrics]>=4.34.0",
     "pydantic-ai-slim[groq]>=1.106.0,<2",
     "pydantic-evals>=1.106.0,<2",
     "pydantic-settings>=2.14.2",
     "pydantic[email]>=2.13.4",
     "pyjwt>=2.9",
-    "slowapi>=0.1.9",
+    "slowapi>=0.1.10",
     "sqlalchemy[asyncio]>=2.0",
     "structlog>=25.5.0",
     "tenacity>=9.1.4",
-    "uvicorn>=0.48.0",
+    "uvicorn>=0.52.3",
 ]
 
 [project.optional-dependencies]
@@ -40,11 +40,11 @@ triage-mcp = "email_triage.mcp_server:main"
 dev = [
     "aiosqlite>=0.20",
     "mcp>=2.0",  # for the MCP server (F4) — tests + typecheck
-    "pre-commit>=4.6.0",
+    "pre-commit>=4.6.2",
     "pyright[nodejs]>=1.1.409",
-    "pytest>=9.0.3",
+    "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
-    "ruff>=0.15.15",
+    "ruff>=0.16.3",
 ]
 
 [build-system]
