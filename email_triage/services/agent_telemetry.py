@@ -25,7 +25,7 @@ from email_triage.observability import (
     TOOL_CALLS_TOTAL,
 )
 
-# llama-3.3-70b-versatile context window (Groq). Per-model; the metric carries a `model` label.
+# qwen/qwen3.6-27b context window (Groq). Per-model; the metric carries a `model` label.
 MODEL_MAX_CONTEXT = 131_072
 # pydantic-ai's default structured-output tool — not a "real" tool call, so we skip it in #2.
 _OUTPUT_TOOL = "final_result"
