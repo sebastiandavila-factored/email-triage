@@ -1,0 +1,18 @@
+{
+  // Typechecks the test + tooling files that the production build deliberately
+  // excludes (see tsconfig.app/node). Run in CI via `npm run typecheck:test`;
+  // NOT part of the root project references, so `tsc -b` (the prod build) skips it.
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "types": ["node", "vite/client"],
+    "noEmit": true
+  },
+  "include": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "e2e/**/*.ts",
+    "vite.config.ts",
+    "vitest.config.ts",
+    "playwright.config.ts"
+  ]
+}
