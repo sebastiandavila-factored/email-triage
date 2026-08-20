@@ -182,3 +182,24 @@ grafo del build es incorrecto de por sí.
 **Garantía verificada:** `tsc -b --listFiles` del build de prod **no** contiene
 `vitest.config`, `playwright.config`, `*.test.ts` ni `e2e/`. El tooling de test se instala en
 Vercel (son devDeps, como `vite`/`tsc`) pero el build no lo ejecuta ni lo typechea.
+
+### Required check sin deadlock (patrón `changes` + `gate`)
+
+**Problema:** con `paths: ['frontend/**']` en los triggers, un PR que solo toca backend **no
+dispara** el workflow. Si se marca `frontend-ci` como *required status check* en `main`,
+GitHub lo deja en *"Expected — waiting for status"* y **bloquea el merge para siempre**
+(trampa clásica de path-filter + required check).
+
+**Fix:** el workflow **siempre** dispara (sin `paths:` en los triggers), y el filtrado pasa
+adentro:
+- Job **`changes`** (`dorny/paths-filter@v3`) → output `frontend` (true/false) según si el
+  diff toca `frontend/**` o el propio workflow.
+- `lint`/`build`/`test`/`e2e` → `needs: changes` + `if: needs.changes.outputs.frontend == 'true'`
+  → se **saltan** en PRs de backend (cero minutos, como antes).
+- Job **`gate`** (`if: always()`, `needs: [changes, lint, build, test, e2e]`) → pasa si todos
+  los reales `success` **o** `skipped`, falla solo ante `failure`/`cancelled`.
+
+**Configuración:** marcar como required **solo `Frontend CI / gate`** — nunca los cuatro jobs
+individuales (se saltan en backend-only y reintroducen el deadlock). Verificado: la lógica del
+gate en bash da PASS con todo-skipped y todo-success, y FAIL ante cualquier `failure`/`cancelled`.
+Dependencia nueva: `dorny/paths-filter@v3` (cubierta por el Dependabot `github-actions` del Plan 48).
