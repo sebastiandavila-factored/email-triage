@@ -1,15 +1,17 @@
 name: Frontend CI
 
+# No `paths:` filter on the triggers — the workflow ALWAYS runs, so the `gate`
+# job below always reports a status and can be a *required* check on `main`
+# without deadlocking backend-only PRs. The expensive jobs are gated internally
+# by the `changes` job instead (they skip when frontend/ is untouched).
 on:
   push:
     branches: [main]
-    paths:
-      - "frontend/**"
-      - ".github/workflows/frontend-ci.yml"
   pull_request:
-    paths:
-      - "frontend/**"
-      - ".github/workflows/frontend-ci.yml"
+
+permissions:
+  contents: read
+  pull-requests: read # dorny/paths-filter lists changed files on PRs
 
 concurrency:
   group: frontend-ci-${{ github.ref }}
@@ -20,7 +22,24 @@ defaults:
     working-directory: frontend
 
 jobs:
+  # Detect whether this push/PR touches the frontend (or this workflow).
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/frontend-ci.yml'
+
   lint:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,6 +52,8 @@ jobs:
       - run: npm run lint
 
   build:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -49,6 +70,8 @@ jobs:
         run: npm run build
 
   test:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -65,6 +88,8 @@ jobs:
         run: npm run test
 
   e2e:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -88,3 +113,28 @@ jobs:
           name: playwright-report
           path: frontend/playwright-report/
           retention-days: 7
+
+  # Single status to mark as the required check on `main`. Always runs; passes
+  # when every real job succeeded OR was skipped (frontend/ untouched), and fails
+  # only if one actually failed or was cancelled.
+  gate:
+    needs: [changes, lint, build, test, e2e]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require frontend checks to pass (or be skipped)
+        # No checkout here, so override the workflow's `frontend` working-dir default
+        # (that path doesn't exist without a checkout).
+        working-directory: ${{ github.workspace }}
+        run: |
+          results="changes=${{ needs.changes.result }} lint=${{ needs.lint.result }} build=${{ needs.build.result }} test=${{ needs.test.result }} e2e=${{ needs.e2e.result }}"
+          echo "$results"
+          for kv in $results; do
+            case "${kv#*=}" in
+              failure|cancelled)
+                echo "::error::A frontend check did not pass ($kv)"
+                exit 1
+                ;;
+            esac
+          done
+          echo "All frontend checks passed or were skipped."
