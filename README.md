@@ -81,12 +81,12 @@ Sign up, connect a Gmail inbox (read-only, revocable), and hit "Fetch today's em
                                         │ HTTPS (CORS-gated)
                                         ▼
                          ┌────────────────────────────┐
-                         │  FastAPI Cloud (backend)    │
-                         │  ── auth (JWT + API key)    │
-                         │  ── RBAC (owner/admin/member)│
-                         │  ── prompt compiler (F2/F3) │
-                         │  ── evals + eval-gate       │
-                         │  ── trace-debug agent       │
+  ┌──────────────┐       │  FastAPI Cloud (backend)    │
+  │  Gmail API   │       │  ── auth (JWT + API key)    │
+  │  inbound     │──────▶│  ── RBAC (owner/admin/member)│
+  │  OAuth +     │       │  ── prompt compiler (F2/F3) │
+  │  /gmail/sync │       │  ── evals + eval-gate       │
+  └──────────────┘       │  ── trace-debug agent       │
                          └──────┬──────────────┬───────┘
                                 │              │
                      ┌──────────▼───┐   ┌──────▼────────┐
@@ -104,6 +104,8 @@ Sign up, connect a Gmail inbox (read-only, revocable), and hit "Fetch today's em
 ```
 
 Three managed services, one contract: the backend needs the frontend's URL for CORS, the frontend needs the backend's URL for `VITE_API_URL`. No servers to patch, no containers to babysit — the whole stack is disposable infrastructure that redeploys from `git push`.
+
+**Gmail is an inbound integration, not part of the `/triage` critical path.** The backend holds each workspace's OAuth token (owner/admin-only, via the `gmail:connect` scope) and pulls the inbox on `POST /gmail/sync`, then triages each message through the same engine a direct API call uses. A `/triage` call never touches Gmail — it's a data source that feeds the Inbox, not a required step of every classification.
 
 ### How one `/triage` request is served
 
