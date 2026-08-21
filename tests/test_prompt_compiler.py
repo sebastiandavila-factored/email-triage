@@ -27,6 +27,7 @@ from email_triage.services.prompt_compiler import (
     render_email,
 )
 from email_triage.services.triage_config import TriageConfigService
+from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # ── Compiler (pure) ───────────────────────────────────────────────────────────
@@ -181,6 +182,42 @@ async def test_no_tenant_falls_back_to_legacy(
     sentinel = object()
     monkeypatch.setattr(deps, "get_llm_service", lambda: sentinel)
     result = await get_triage_service(TenantContext(tenant_id=None))
+    assert result is sentinel
+
+
+async def test_genuine_load_failure_fails_loud_not_legacy(
+    svc_db: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A real failure on the config-load path (DB unreachable, unreadable row) must NOT be
+    # masked as a successful legacy triage: it raises a 503 instead of serving the wrong
+    # taxonomy. If it silently fell back, this would return the legacy sentinel.
+    sentinel = object()
+    monkeypatch.setattr(deps, "get_llm_service", lambda: sentinel)
+
+    async def boom(*_a: Any, **_k: Any) -> Any:
+        raise RuntimeError("connection reset by peer")
+
+    monkeypatch.setattr(deps.PromptVersionRepo, "active", boom)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_triage_service(TenantContext(tenant_id=svc_db.tenant_id))
+    assert exc_info.value.status_code == 503
+
+
+async def test_no_active_categories_still_falls_back_to_legacy(
+    svc_db: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Intended default: a tenant that hasn't configured any taxonomy (no categories) gets
+    # the legacy prompt — the correct answer, NOT a 503.
+    sentinel = object()
+    monkeypatch.setattr(deps, "get_llm_service", lambda: sentinel)
+    async with svc_db.factory() as session, session.begin():
+        bare = Tenant(name="Bare", type="team", domain=None)
+        session.add(bare)
+        await session.flush()
+        bare_id = bare.id
+
+    result = await get_triage_service(TenantContext(tenant_id=bare_id))
     assert result is sentinel
 
 
