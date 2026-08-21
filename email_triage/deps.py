@@ -371,8 +371,11 @@ async def get_triage_service(tenant: TenantDep) -> LLMService:
 
     "Published wins if present": a tenant with an active PromptVersion is served that
     frozen prompt; otherwise the draft is live-compiled (F2 + F3 examples/overrides).
-    Falls back to the legacy service on no tenant / no DB / no active categories — the
-    critical path must never 500 on prompt configuration.
+
+    Legacy fallback is served only for the *intended default* — no tenant, no DB, or a
+    tenant that hasn't configured a taxonomy yet. A *genuine* failure (DB unreachable, an
+    unreadable version row) is not masked as a successful triage on the wrong taxonomy:
+    the real cause is logged for operators and the caller gets a semantic 503.
     """
     tenant_id = tenant.tenant_id
     if tenant_id is None:
@@ -392,11 +395,26 @@ async def get_triage_service(tenant: TenantDep) -> LLMService:
                 )
             draft = await PromptStudioService().compile_draft(session, tenant_id)
     except PromptStudioError:
-        _log.warning("prompt.fallback", reason="no_active_categories")
+        # Intended default: the tenant hasn't configured a taxonomy yet. Legacy is the
+        # correct answer here, not a failure.
+        _log.info("prompt.default_taxonomy", reason="no_active_categories")
         return get_llm_service()
-    except Exception:
-        _log.warning("prompt.fallback", reason="taxonomy_query_failed")
-        return get_llm_service()
+    except Exception as exc:
+        # Genuine failure (DB unreachable, corrupt version row, decrypt error, ...). Do
+        # NOT silently serve the wrong legacy taxonomy: log the real cause for operators
+        # (structlog carries request_id/trace_id → Logfire) and fail loud with a safe,
+        # friendly 503. request_id in the response headers is the caller's correlation id.
+        _log.error(
+            "prompt.load_failed",
+            reason="taxonomy_query_failed",
+            error_class=type(exc).__name__,
+            error=str(exc),
+            tenant_id=str(tenant_id),
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Triage is temporarily unavailable, please retry shortly.",
+        ) from exc
 
     token = hashlib.sha1(draft.prompt.encode()).hexdigest()  # noqa: S324 — cache key, not security
     return _cached_or_build(

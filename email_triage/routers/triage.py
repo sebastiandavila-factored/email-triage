@@ -74,7 +74,19 @@ async def triage(
         except (LLMError, httpx.HTTPStatusError, httpx.RequestError) as exc:
             ERRORS_TOTAL.add(1, {"endpoint": "sync", "status_code": "503"})
             span.set_attribute("error.kind", "llm_unavailable")
-            raise HTTPException(status_code=503, detail="LLM service unavailable") from exc
+            # Log the real cause (e.g. a deprecated model) for operators — the caller
+            # only ever sees a friendly message + the request_id correlation header.
+            _log.error(
+                "triage.llm_failed",
+                endpoint="sync",
+                model=get_settings().groq_model,
+                error_class=type(exc).__name__,
+                error=str(exc),
+            )
+            raise HTTPException(
+                status_code=503,
+                detail="Triage is temporarily unavailable, please retry shortly.",
+            ) from exc
         llm_latency_ms = (time.perf_counter() - t_llm) * 1000
         LLM_LATENCY_MS.record(llm_latency_ms, {"endpoint": "sync"})
         REQUESTS_TOTAL.add(1, {"endpoint": "sync", "category": str(result.category)})
@@ -136,8 +148,18 @@ async def triage_stream(
     except LLMError as exc:
         ERRORS_TOTAL.add(1, {"endpoint": "stream", "status_code": "503"})
         span.set_attribute("error.kind", "llm_unavailable")
+        _log.error(
+            "triage.llm_failed",
+            endpoint="stream",
+            model=get_settings().groq_model,
+            error_class=type(exc).__name__,
+            error=str(exc),
+        )
         span_ctx.__exit__(type(exc), exc, exc.__traceback__)
-        raise HTTPException(status_code=503, detail="LLM service unavailable") from exc
+        raise HTTPException(
+            status_code=503,
+            detail="Triage is temporarily unavailable, please retry shortly.",
+        ) from exc
 
     async def gen() -> AsyncGenerator[str]:
         emitted_text = ""
