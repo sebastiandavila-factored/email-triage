@@ -38,8 +38,8 @@ email-triage/
 │       └── triage.py
 ├── tests/                   # pytest async, no real network
 ├── docs/                    # see AGENTS.md
-├── Dockerfile               # multi-stage uv (Day 6)
-├── gunicorn.conf.py         # (Day 6)
+├── Dockerfile               # multi-stage uv 
+├── gunicorn.conf.py         # gunicorn config
 └── pyproject.toml           # deps + ruff + pyright config
 ```
 
